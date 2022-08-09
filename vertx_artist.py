@@ -1,0 +1,393 @@
+"""Vertex color script for blender."""
+
+import os
+import math
+import re
+import colorsys
+
+import bpy
+
+
+def to_blender_color(rgb):
+    """Gamma correction."""
+
+    r = rgb[0] * 255
+    g = rgb[1] * 255
+    b = rgb[2] * 255
+
+    r = min(max(0, r), 255) / 255
+    g = min(max(0, g), 255) / 255
+    b = min(max(0, b), 255) / 255
+
+    r = r / 12.92 if r < 0.04045 else math.pow((r + 0.055) / 1.055, 2.4)
+    g = g / 12.92 if g < 0.04045 else math.pow((g + 0.055) / 1.055, 2.4)
+    b = b / 12.92 if b < 0.04045 else math.pow((b + 0.055) / 1.055, 2.4)
+
+    return r, g, b
+
+
+def from_blender_color(rgb):
+    """Gamma uncorrection."""
+
+    r = rgb[0]
+    g = rgb[1]
+    b = rgb[2]
+
+    r = max(0.0, r * 12.92) if r < 0.0031308 else 1.055 * math.pow(r, 1.0 / 2.4) - 0.055
+    g = max(0.0, g * 12.92) if g < 0.0031308 else 1.055 * math.pow(g, 1.0 / 2.4) - 0.055
+    b = max(0.0, b * 12.92) if b < 0.0031308 else 1.055 * math.pow(b, 1.0 / 2.4) - 0.055
+
+    r = max(min(int(r * 255 + 0.5), 255), 0)
+    g = max(min(int(g * 255 + 0.5), 255), 0)
+    b = max(min(int(b * 255 + 0.5), 255), 0)
+
+    return r / 255, g / 255, b / 255
+
+
+def print_props(inst, max_len=50):
+    for i in dir(inst):
+        if i.startswith("__"):
+            continue
+
+        prop = str(getattr(inst, i))
+        prop = prop if len(prop) < 73 else prop[:70] + "..."
+        name_len = len(str(i))
+        print(i, (max_len - name_len) * " ", prop)
+
+
+loop_data_color = []
+last_active_loop = None
+last_mode = "POLYGON"
+mode_bools = (False, False)
+last_selection = []
+request_refresh = False
+
+
+def on_color_change(color: tuple):
+    """Update color of everything with same color."""
+
+    global request_refresh
+
+    obj = bpy.context.object
+    if obj is None:
+        return None
+
+    try:
+        color_attribute = obj.data.color_attributes["Col"]
+    except KeyError:
+        return None
+
+    if last_active_loop is None:
+        return None
+    
+    if not loop_data_color:
+        return None
+
+    for i in loop_data_color[last_active_loop]["loops"]:
+        for j in range(3):
+            color_attribute.data[i].color[j] = color[j]
+
+    request_refresh = True
+
+
+def on_colors_change(colors: list):
+    """Update colors of everything with same color."""
+
+    global request_refresh
+
+    obj = bpy.context.object
+    if obj is None:
+        return None
+
+    try:
+        color_attribute = obj.data.color_attributes["Col"]
+    except KeyError:
+        return None
+    
+    if not loop_data_color:
+        return None
+    
+    for i in range(len(colors)):
+        color = tuple(colors[i].color)
+        if color != loop_data_color[i]["color"]:
+            for j in loop_data_color[i]["loops"]:
+                for k in range(3):
+                    color_attribute.data[j].color[k] = color[k]
+
+    request_refresh = True
+
+
+def refresh_colors(force: bool = False):
+    """Handle selection changes, return active color and object colors"""
+
+    global loop_data_color, last_active_loop, last_mode, mode_bools, last_selection, request_refresh
+
+    output_size = 2
+
+    obj = bpy.context.object
+    if obj is None:
+        loop_data_color = []
+        last_active_loop = None
+        return (None, ) * output_size
+
+    try:
+        color_attribute = obj.data.color_attributes["Col"]
+    except KeyError:
+        loop_data_color = []
+        last_active_loop = None
+        return (None, ) * output_size
+
+    try:
+        vert_mode = bpy.context.object.data.use_paint_mask_vertex
+        poly_mode = bpy.context.object.data.use_paint_mask
+
+        mode_changed = mode_bools[0] != vert_mode or mode_bools[1] != poly_mode
+    except AttributeError:
+        loop_data_color = []
+        last_active_loop = None
+        return (None, ) * output_size
+
+    object_colors = {}
+    selection_changed = False
+
+    # vertices
+    if vert_mode or (not poly_mode and last_mode == "VERTEX"):
+        selected_vert_idx = []
+
+        if vert_mode:
+            for vertex in obj.data.vertices:
+                if vertex.select:
+                    selected_vert_idx.append(vertex.index)
+            
+            last_mode = "VERTEX"
+        
+        if not selected_vert_idx:
+            selected_vert_idx = last_selection
+
+        for i, l in enumerate(obj.data.loops):
+            if l.vertex_index not in selected_vert_idx:
+                continue
+
+            color = tuple(color_attribute.data[i].color)[:-1]
+            object_colors[color] = object_colors.get(color, 0) + 1
+
+        if selected_vert_idx != last_selection:
+            last_selection = selected_vert_idx
+            selection_changed = True
+
+    # polygons
+    if poly_mode or (not vert_mode and last_mode == "POLYGON"):
+        selected_poly_loops = []
+
+        if poly_mode:
+            for polygon in obj.data.polygons:
+                if polygon.select:
+                    selected_poly_loops.extend(polygon.loop_indices)
+
+            last_mode = "POLYGON"
+
+        if not selected_poly_loops:
+            selected_poly_loops = last_selection
+
+        for i in selected_poly_loops:
+            color = tuple(color_attribute.data[i].color)[:-1]
+            object_colors[color] = object_colors.get(color, 0) + 1
+
+        if selected_poly_loops != last_selection:
+            last_selection = selected_poly_loops
+            selection_changed = True
+
+    if len(object_colors) == 0:
+        return (None, ) * output_size
+
+    if not selection_changed and not mode_changed and not force and not request_refresh:
+        return (None, ) * output_size
+
+    if mode_changed:
+        mode_bools = (vert_mode, poly_mode)
+
+    # last_colors = [x["color"] for x in loop_data_color]
+
+    # Set object loop data
+    if request_refresh:
+        for element in loop_data_color:
+            element["color"] = tuple(color_attribute.data[element["loops"][0]].color)[:-1]
+    else:
+        loop_data_color = []
+
+        for i, l in enumerate(obj.data.loops):
+            color = tuple(color_attribute.data[i].color)[:-1]
+            
+            element = [x for x in loop_data_color if x["color"] == color]
+
+            if len(element) == 0:
+                loop_data_color.append({"color": color, "loops": [i]})
+            else:
+                element[0]["loops"].append(i)
+
+    color = max(object_colors, key=object_colors.get)
+
+    if not request_refresh:
+        last_active_loop = [i for i, x in enumerate(loop_data_color) if x["color"] == color][0]
+
+    colors = [x["color"] for x in loop_data_color]
+    request_refresh = False
+
+    return color, colors
+
+
+def import_palette(path: str):
+    """Import palette from file."""
+
+    palette_name = os.path.basename(path).split(".")[0]
+    palette_name = palette_name.replace("_", " ")
+    file_extension = path.split(".")[-1]
+
+    names = []
+    colors = []
+
+    if file_extension == "ccb":
+        with open(path, "r", encoding="utf16") as f:
+            contents = f.readlines()
+
+        del contents[:25]
+
+        for line in contents:
+            line = line.strip().split(" ")
+
+            r_raw = float(line[0])
+            g_raw = float(line[1])
+            b_raw = float(line[2])
+
+            colors.append(to_blender_color((r_raw, g_raw, b_raw)))
+            names.append(line[4])
+
+    if file_extension == "colors":
+        with open(path, "r", encoding="us-ascii") as f:
+            contents = f.read()
+
+        colors_re = re.findall(r'(m_Color: {r: (.+), g: (.+), b: (.+), a: (.+)})', contents)
+        names = re.findall(r'(- m_Name: (.*))', contents)
+
+        for color in colors_re:
+            r_raw = float(color[1])
+            g_raw = float(color[2])
+            b_raw = float(color[3])
+
+            colors.append(to_blender_color((r_raw, g_raw, b_raw)))
+
+        names = [i[1] for i in names][9:]
+        colors = colors[9:]
+
+    return palette_name, names, colors
+
+
+def export_palette(colors: list, path: str, header_path: str):
+    """Export palette to file."""
+
+    file_extension = path.split(".")[-1]
+
+    if file_extension == "ccb":
+        with open(header_path, "r", encoding="utf8") as f:
+            contents = f.readlines()
+
+        with open(path, "w", encoding="utf16") as out:
+            out.writelines(contents)
+
+            print(len(colors), file=out)
+
+            for color in colors:
+                rgb = from_blender_color(tuple(color.color))
+                print(
+                    f"{rgb[0]:.6f}",
+                    f"{rgb[1]:.6f}",
+                    f"{rgb[2]:.6f}",
+                    f"{1:.6f}",
+                    color.name,
+                    file=out
+                )
+
+
+def compare_hsv(color1: tuple, color2: tuple, ignore_hsv: tuple):
+    """Compare the two colors, ignoring HSV flags."""
+
+    equals = (
+        (color1[0] == color2[0]) or ignore_hsv[0],
+        (color1[1] == color2[1]) or ignore_hsv[1],
+        (color1[2] == color2[2]) or ignore_hsv[2]
+    )
+
+    return all(equals)
+
+
+def select_by_color(tolerance: float, color: tuple, ignore_hsv):
+    """Select all vertices/polygons with color within tolerance."""
+
+    obj = bpy.context.object
+    if obj is None:
+        return None
+
+    try:
+        color_attribute = obj.data.color_attributes["Col"]
+    except KeyError:
+        return None
+
+    try:
+        vert_mode = bpy.context.object.data.use_paint_mask_vertex
+        poly_mode = bpy.context.object.data.use_paint_mask
+    except AttributeError:
+        return None
+
+    if not vert_mode and not poly_mode:
+        bpy.context.object.data.use_paint_mask = True
+        poly_mode = True
+
+    color = tuple(color)
+    hsv_color = colorsys.rgb_to_hsv(*color)
+
+    if vert_mode:
+        vert_colors = {}
+
+        for vertex in obj.data.vertices:
+            if vertex.select:
+                vertex.select = False
+
+        for i, l in enumerate(obj.data.loops):
+            obj_color = tuple(color_attribute.data[i].color)[:-1]
+            obj_hsv_color = colorsys.rgb_to_hsv(*obj_color)
+
+            if l.vertex_index not in vert_colors:
+                vert_colors[l.vertex_index] = [0, 0]
+
+            if compare_hsv(obj_hsv_color, hsv_color, ignore_hsv):
+                vert_colors[l.vertex_index][0] += 1
+
+            vert_colors[l.vertex_index][1] += 1
+
+        for k, v in vert_colors.items():
+            if v[0] and v[0] / v[1] >= (1 - tolerance):
+                obj.data.vertices[k].select = True
+
+    if poly_mode:
+        poly_colors = {}
+
+        for polygon in obj.data.polygons:
+            if polygon.select:
+                polygon.select = False
+
+        for polygon in obj.data.polygons:
+            for j in polygon.loop_indices:
+                obj_color = tuple(color_attribute.data[j].color)[:-1]
+                obj_hsv_color = colorsys.rgb_to_hsv(*obj_color)
+
+                if polygon.index not in poly_colors:
+                    poly_colors[polygon.index] = [0, 0]
+                
+                if compare_hsv(obj_hsv_color, hsv_color, ignore_hsv):
+                    poly_colors[polygon.index][0] += 1
+                
+                poly_colors[polygon.index][1] += 1
+        
+        for k, v in poly_colors.items():
+            if v[0] and v[0] / v[1] >= (1 - tolerance):
+                obj.data.polygons[k].select = True
