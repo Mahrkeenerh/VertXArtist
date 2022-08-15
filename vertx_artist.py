@@ -63,7 +63,73 @@ last_selection = []
 request_refresh = False
 
 
-def on_color_change(color: tuple):
+def set_restricted_color(color: tuple, new_color: tuple, channels: str):
+    """Set color according to restrictions."""
+
+    if "R" in channels:
+        color[0] = new_color[0]
+    
+    if "G" in channels:
+        color[1] = new_color[1]
+    
+    if "B" in channels:
+        color[2] = new_color[2]
+    
+    if channels == "alpha":
+        for i in range(3):
+            color[i] = new_color[0]
+
+
+def set_color(color: tuple, channels: str):
+    """Set color of active selection."""
+
+    # color = from_blender_color(color)
+
+    obj = bpy.context.object
+    if obj is None:
+        return None
+
+    color_attribute = obj.data.color_attributes.active_color
+
+    if color_attribute is None:
+        return None
+
+    try:
+        vert_mode = obj.data.use_paint_mask_vertex
+        poly_mode = obj.data.use_paint_mask
+    except AttributeError:
+        return None
+
+    if vert_mode:
+        selected_vert_idx = []
+
+        for vertex in obj.data.vertices:
+            if vertex.select:
+                selected_vert_idx.append(vertex.index)
+
+        for i, l in enumerate(obj.data.loops):
+            if l.vertex_index not in selected_vert_idx:
+                continue
+            
+            set_restricted_color(
+                color_attribute.data[i].color,
+                color,
+                channels
+            )
+
+    # polygons
+    if poly_mode:
+        for polygon in obj.data.polygons:
+            if polygon.select:
+                for i in polygon.loop_indices:
+                    set_restricted_color(
+                        color_attribute.data[i].color,
+                        color,
+                        channels
+                    )
+
+
+def on_color_change(color: tuple, channels: str):
     """Update color of everything with same color."""
 
     global request_refresh
@@ -72,9 +138,9 @@ def on_color_change(color: tuple):
     if obj is None:
         return None
 
-    try:
-        color_attribute = obj.data.color_attributes["Col"]
-    except KeyError:
+    color_attribute = obj.data.color_attributes.active_color
+
+    if color_attribute is None:
         return None
 
     if last_active_loop is None:
@@ -84,13 +150,16 @@ def on_color_change(color: tuple):
         return None
 
     for i in loop_data_color[last_active_loop]["loops"]:
-        for j in range(3):
-            color_attribute.data[i].color[j] = color[j]
+        set_restricted_color(
+            color_attribute.data[i].color,
+            color,
+            channels
+        )
 
     request_refresh = True
 
 
-def on_colors_change(colors: list):
+def on_colors_change(colors: list, channels: str):
     """Update colors of everything with same color."""
 
     global request_refresh
@@ -99,9 +168,9 @@ def on_colors_change(colors: list):
     if obj is None:
         return None
 
-    try:
-        color_attribute = obj.data.color_attributes["Col"]
-    except KeyError:
+    color_attribute = obj.data.color_attributes.active_color
+
+    if color_attribute is None:
         return None
     
     if not loop_data_color:
@@ -111,8 +180,11 @@ def on_colors_change(colors: list):
         color = tuple(colors[i].color)
         if color != loop_data_color[i]["color"]:
             for j in loop_data_color[i]["loops"]:
-                for k in range(3):
-                    color_attribute.data[j].color[k] = color[k]
+                set_restricted_color(
+                    color_attribute.data[j].color,
+                    color,
+                    channels
+                )
 
     request_refresh = True
 
@@ -130,16 +202,16 @@ def refresh_colors(force: bool = False):
         last_active_loop = None
         return (None, ) * output_size
 
-    try:
-        color_attribute = obj.data.color_attributes["Col"]
-    except KeyError:
+    color_attribute = obj.data.color_attributes.active_color
+
+    if color_attribute is None:
         loop_data_color = []
         last_active_loop = None
-        return (None, ) * output_size
+        return (None, ) * output_size        
 
     try:
-        vert_mode = bpy.context.object.data.use_paint_mask_vertex
-        poly_mode = bpy.context.object.data.use_paint_mask
+        vert_mode = obj.data.use_paint_mask_vertex
+        poly_mode = obj.data.use_paint_mask
 
         mode_changed = mode_bools[0] != vert_mode or mode_bools[1] != poly_mode
     except AttributeError:
@@ -327,19 +399,19 @@ def select_by_color(tolerance: float, color: tuple, ignore_hsv):
     if obj is None:
         return None
 
-    try:
-        color_attribute = obj.data.color_attributes["Col"]
-    except KeyError:
+    color_attribute = obj.data.color_attributes.active_color
+
+    if color_attribute is None:
         return None
 
     try:
-        vert_mode = bpy.context.object.data.use_paint_mask_vertex
-        poly_mode = bpy.context.object.data.use_paint_mask
+        vert_mode = obj.data.use_paint_mask_vertex
+        poly_mode = obj.data.use_paint_mask
     except AttributeError:
         return None
 
     if not vert_mode and not poly_mode:
-        bpy.context.object.data.use_paint_mask = True
+        obj.data.use_paint_mask = True
         poly_mode = True
 
     color = tuple(color)
