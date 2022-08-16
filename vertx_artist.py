@@ -463,3 +463,48 @@ def select_by_color(tolerance: float, color: tuple, ignore_hsv):
         for k, v in poly_colors.items():
             if v[0] and v[0] / v[1] >= (1 - tolerance):
                 obj.data.polygons[k].select = True
+
+
+def combine_layers(channels: str, channels_list: list, channels_values: list, layers: list):
+    """Assign color to active Color attribute from multiple channels."""
+
+    obj = bpy.context.object
+    if obj is None:
+        return None
+
+    color_attribute = obj.data.color_attributes.active_color
+
+    if color_attribute is None:
+        return None
+
+    color_attributes = [None] * 4
+
+    for col_attribute in obj.data.color_attributes:
+        for i in range(4):
+            if col_attribute.name == channels_list[i]:
+                color_attributes[i] = col_attribute
+
+    def color_map(i: int, j: int):
+        if color_attributes[j] is None:
+            return channels_values[j]
+
+        if j < 3:
+            return color_attributes[j].data[i].color[j]
+
+        if layers[color_attributes[j].name].channels == "A":
+            return color_attributes[j].data[i].color[0]
+
+        if channels == "A":
+            return color_attributes[j].data[i].color[3]
+        
+        return color_attributes[j].data[i].color[j]
+
+    if channels == "A":
+        for i, l in enumerate(obj.data.loops):
+            for j in range(3):
+                color_attribute.data[i].color[j] = color_map(i, 3)
+        return
+
+    for i, l in enumerate(obj.data.loops):
+        for j in range(4):
+            color_attribute.data[i].color[j] = color_map(i, j)
