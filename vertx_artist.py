@@ -207,7 +207,7 @@ def refresh_colors(force: bool = False):
     if color_attribute is None:
         loop_data_color = []
         last_active_loop = None
-        return (None, ) * output_size        
+        return (None, ) * output_size
 
     try:
         vert_mode = obj.data.use_paint_mask_vertex
@@ -269,8 +269,8 @@ def refresh_colors(force: bool = False):
             last_selection = selected_poly_loops
             selection_changed = True
 
-    if len(object_colors) == 0:
-        return (None, ) * output_size
+    # if len(object_colors) == 0:
+    #     return (None, ) * output_size
 
     if not selection_changed and not mode_changed and not force and not request_refresh:
         return (None, ) * output_size
@@ -297,12 +297,12 @@ def refresh_colors(force: bool = False):
             else:
                 element[0]["loops"].append(i)
 
-    color = max(object_colors, key=object_colors.get)
+    colors = [x["color"] for x in loop_data_color]
+    color = max(object_colors, key=object_colors.get) if len(object_colors) > 0 else colors[0]
 
     if not request_refresh:
         last_active_loop = [i for i, x in enumerate(loop_data_color) if x["color"] == color][0]
 
-    colors = [x["color"] for x in loop_data_color]
     request_refresh = False
 
     return color, colors
