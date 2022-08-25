@@ -11,6 +11,30 @@ All-in-one Blender Vertex Painting tools. Adds support for External Palettes and
 
 
 
+# Quick Access Pie Menu
+
+To enable Quick Access Pie Menu, you need to disable the default Blender shortcut for the same key, in the Vertex Paint window.
+
+![Shortcut Addon](/docu/shortcut_addon.png)
+
+![Shorctut Default](/docu/shortcut_default.png)
+
+
+
+# Checkpoint
+
+Only adjusting object colors doesn't generate undo-steps. That's why `Checkpoint` operator is introduced. Pressing this button generates a save-state you can later return to. Making it possible to save object at different stages of coloring.
+
+- Adjust object color
+- `Checkpoint`
+- Now you are able to undo before and after the change
+
+If you didn't save after adjusting the object color, Blender will undo the last action performed (face selection, enter `Vertex Paint` mode ...)
+
+![Checkpoint](/docu/checkpoint.png)
+
+
+
 # Easily Fine-Tune Object Colors
 
 ![Adjust Object Colors](/docu/adjust_object_colors.gif)
