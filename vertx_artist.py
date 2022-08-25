@@ -75,7 +75,7 @@ def set_restricted_color(color: tuple, new_color: tuple, channels: str):
     if "B" in channels:
         color[2] = new_color[2]
     
-    if channels == "alpha":
+    if "A" == channels:
         for i in range(3):
             color[i] = new_color[0]
 
