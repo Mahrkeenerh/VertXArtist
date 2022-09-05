@@ -334,6 +334,8 @@ def import_palette(path: str):
             colors.append(to_blender_color((r_raw, g_raw, b_raw)))
             names.append(line[4])
 
+        return palette_name, names, colors
+
     if file_extension == "colors":
         with open(path, "r", encoding="us-ascii") as f:
             contents = f.read()
@@ -351,16 +353,47 @@ def import_palette(path: str):
         names = [i[1] for i in names][9:]
         colors = colors[9:]
 
-    return palette_name, names, colors
+        return palette_name, names, colors
+
+    if file_extension == "gpl":
+        with open(path, "r", encoding="utf8") as f:
+            contents = f.readlines()
+
+        for line in contents:
+            line = line.strip()
+
+            if (
+                line == "" or
+                line.startswith("#") or
+                line.startswith("GIMP Palette") or
+                line.startswith("Name: ") or
+                line.startswith("Columns: ")
+            ):
+                continue
+
+            line = line.split()
+
+            r_raw = float(line[0]) / 255
+            g_raw = float(line[1]) / 255
+            b_raw = float(line[2]) / 255
+            name = " ".join(line[3:])
+
+            colors.append(to_blender_color((r_raw, g_raw, b_raw)))
+            names.append(name)
+
+        return palette_name, names, colors
+    
+    print("Unknown file extension: " + file_extension)
+    return None, None, None
 
 
-def export_palette(colors: list, path: str, header_path: str):
+def export_palette(colors: list, path: str, ccb_header_path: str = None):
     """Export palette to file."""
 
     file_extension = path.split(".")[-1]
 
     if file_extension == "ccb":
-        with open(header_path, "r", encoding="utf8") as f:
+        with open(ccb_header_path, "r", encoding="utf8") as f:
             contents = f.readlines()
 
         with open(path, "w", encoding="utf16") as out:
@@ -378,6 +411,30 @@ def export_palette(colors: list, path: str, header_path: str):
                     color.name,
                     file=out
                 )
+
+        return
+
+    if file_extension == "gpl":
+        with open(path, "w", encoding="utf8") as out:
+            print("GIMP Palette", file=out)
+            print("Name:", os.path.basename(path).split(".")[0], file=out)
+            print("Columns: 0", file=out)
+
+            for color in colors:
+                rgb = from_blender_color(tuple(color.color))
+                rgb_int = [int(x * 255) for x in rgb]
+                print(
+                    f"{rgb_int[0]}",
+                    f"{rgb_int[1]}",
+                    f"{rgb_int[2]}",
+                    color.name,
+                    file=out
+                )
+
+        return
+
+    print("Unknown file extension: " + file_extension)
+    return
 
 
 def compare_hsv(color1: tuple, color2: tuple, ignore_hsv: tuple):
