@@ -23,14 +23,14 @@ blend_map = {
 }
 
 
-def create_material_connections(material, modifications, render_layer):
+def create_material_connections(material, modifications, base_layer):
     """Create connections between nodes."""
 
     node_tree = material.node_tree
 
     material_output = node_tree.nodes.new(type="ShaderNodeOutputMaterial")
     color_input = node_tree.nodes.new(type="ShaderNodeVertexColor")
-    color_input.layer_name = render_layer.name
+    color_input.layer_name = base_layer
     color_input.location = (-200, 0)
 
     nodes = []
