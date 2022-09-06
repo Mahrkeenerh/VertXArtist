@@ -110,7 +110,7 @@ def set_color(color: tuple, channels: str):
         for i, l in enumerate(obj.data.loops):
             if l.vertex_index not in selected_vert_idx:
                 continue
-            
+
             set_restricted_color(
                 color_attribute.data[i].color,
                 color,
