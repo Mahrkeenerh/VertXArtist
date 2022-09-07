@@ -22,6 +22,17 @@ All-in-one Blender Vertex Painting tools. Adds support for External Palettes and
 
 
 
+# Preview and Apply Color Transformations
+
+Custom Color Transformations are applied based on the Stack, not the material itself.
+
+The material only provides a visual preview.
+
+![Color Transformations](/docu/color_transformations.gif)
+
+
+
+
 # Set Object Colors and Create Gradients
 
 ![Set Object Colors](/docu/set_colors.gif)
