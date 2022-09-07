@@ -155,23 +155,23 @@ def mix_color(r_col, col, blend_type, fac):
             if tmp > r_col[2]:
                 r_col[2] = tmp
 
-        case "Dodge":
+        case "Color Dodge":
             if r_col[0] != 0:
                 tmp = 1 - fac * col[0]
 
                 if tmp <= 0:
                     r_col[0] = 1
-                elif tmp := r_col[0] / tmp > 1:
+                elif (tmp := r_col[0] / tmp) > 1:
                     r_col[0] = 1
                 else:
                     r_col[0] = tmp
-                
+
             if r_col[1] != 0:
                 tmp = 1 - fac * col[1]
 
                 if tmp <= 0:
                     r_col[1] = 1
-                elif tmp := r_col[1] / tmp > 1:
+                elif (tmp := r_col[1] / tmp) > 1:
                     r_col[1] = 1
                 else:
                     r_col[1] = tmp
@@ -181,39 +181,39 @@ def mix_color(r_col, col, blend_type, fac):
 
                 if tmp <= 0:
                     r_col[2] = 1
-                elif tmp := r_col[2] / tmp > 1:
+                elif (tmp := r_col[2] / tmp) > 1:
                     r_col[2] = 1
                 else:
                     r_col[2] = tmp
 
-        case "Burn":
-            tmp = facm + fac * r_col[0]
+        case "Color Burn":
+            tmp = facm + fac * col[0]
 
             if tmp <= 0:
                 r_col[0] = 0
-            elif tmp := 1 - (1 - r_col[0]) / tmp < 0:
+            elif (tmp := 1 - (1 - r_col[0]) / tmp) < 0:
                 r_col[0] = 0
             elif tmp > 1:
                 r_col[0] = 1
             else:
                 r_col[0] = tmp
 
-            tmp = facm + fac * r_col[1]
+            tmp = facm + fac * col[1]
 
             if tmp <= 0:
                 r_col[1] = 0
-            elif tmp := 1 - (1 - r_col[1]) / tmp < 0:
+            elif (tmp := 1 - (1 - r_col[1]) / tmp) < 0:
                 r_col[1] = 0
             elif tmp > 1:
                 r_col[1] = 1
             else:
                 r_col[1] = tmp
 
-            tmp = facm + fac * r_col[2]
+            tmp = facm + fac * col[2]
 
             if tmp <= 0:
                 r_col[2] = 0
-            elif tmp := 1 - (1 - r_col[2]) / tmp < 0:
+            elif (tmp := 1 - (1 - r_col[2]) / tmp) < 0:
                 r_col[2] = 0
             elif tmp > 1:
                 r_col[2] = 1
@@ -239,15 +239,9 @@ def mix_color(r_col, col, blend_type, fac):
                 r_col[0], r_col[1], r_col[2] = colorsys.hsv_to_rgb(r_h, facm * r_s + fac * col_s, r_v)
 
         case "Value":
+            r_h, r_s, r_v = colorsys.rgb_to_hsv(r_col[0], r_col[1], r_col[2])
             col_h, col_s, col_v = colorsys.rgb_to_hsv(col[0], col[1], col[2])
-
-            if col_s != 0:
-                r_h, r_s, r_v = colorsys.rgb_to_hsv(r_col[0], r_col[1], r_col[2])
-                tmp_r, tmp_g, tmp_b = colorsys.hsv_to_rgb(col_h, col_s, r_v)
-
-                r_col[0] = facm * r_col[0] + fac * tmp_r
-                r_col[1] = facm * r_col[1] + fac * tmp_g
-                r_col[2] = facm * r_col[2] + fac * tmp_b
+            r_col[0], r_col[1], r_col[2] = colorsys.hsv_to_rgb(r_h, r_s, facm * r_v + fac * col_v)
 
         case "Color":
             col_h, col_s, col_v = colorsys.rgb_to_hsv(col[0], col[1], col[2])
@@ -265,25 +259,25 @@ def mix_color(r_col, col, blend_type, fac):
             scg = 1 - (1 - col[1]) * (1 - r_col[1])
             scb = 1 - (1 - col[2]) * (1 - r_col[2])
 
-            r_col[0] = facm * r_col[0] + fac * (((1 - r_col[0]) * col[0] * r_col[0]) + (r_col[0] * scr))
-            r_col[1] = facm * r_col[1] + fac * (((1 - r_col[1]) * col[1] * r_col[1]) + (r_col[1] * scg))
-            r_col[2] = facm * r_col[2] + fac * (((1 - r_col[2]) * col[2] * r_col[2]) + (r_col[2] * scb))
+            r_col[0] = facm * r_col[0] + fac * ((1 - r_col[0]) * col[0] * r_col[0] + r_col[0] * scr)
+            r_col[1] = facm * r_col[1] + fac * ((1 - r_col[1]) * col[1] * r_col[1] + r_col[1] * scg)
+            r_col[2] = facm * r_col[2] + fac * ((1 - r_col[2]) * col[2] * r_col[2] + r_col[2] * scb)
 
         case "Linear Light":
             if col[0] > 0.5:
-                r_col[0] = r_col[0] + fac * (2 * (col[0] - 0.5))
+                r_col[0] += fac * (2 * (col[0] - 0.5))
             else:
-                r_col[0] = r_col[0] + fac * (2 * col[0] - 1)
+                r_col[0] += fac * (2 * col[0] - 1)
             
             if col[1] > 0.5:
-                r_col[1] = r_col[1] + fac * (2 * (col[1] - 0.5))
+                r_col[1] += fac * (2 * (col[1] - 0.5))
             else:
-                r_col[1] = r_col[1] + fac * (2 * col[1] - 1)
+                r_col[1] += fac * (2 * col[1] - 1)
         
             if col[2] > 0.5:
-                r_col[2] = r_col[2] + fac * (2 * (col[2] - 0.5))
+                r_col[2] += fac * (2 * (col[2] - 0.5))
             else:
-                r_col[2] = r_col[2] + fac * (2 * col[2] - 1)
+                r_col[2] += fac * (2 * col[2] - 1)
 
 
 def aplly_color_transformation_stack(modification_stack, only_visible):
