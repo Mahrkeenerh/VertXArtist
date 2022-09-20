@@ -8,6 +8,24 @@ import colorsys
 import bpy
 
 
+def gamma_correct(c: float):
+    """Gamma correction."""
+
+    c *= 255
+    c = min(max(0, c), 255) / 255
+
+    return c / 12.92 if c < 0.04045 else math.pow((c + 0.055) / 1.055, 2.4)
+
+
+def gamma_uncorrect(c: float):
+    """Gamma uncorrection."""
+
+    c = max(0.0, c * 12.92) if c < 0.0031308 else 1.055 * math.pow(c, 1.0 / 2.4) - 0.055
+    c = max(min(int(c * 255 + 0.5), 255), 0)
+
+    return c / 255
+
+
 def to_blender_color(rgb):
     """Gamma correction."""
 
@@ -331,7 +349,8 @@ def import_palette(path: str):
             g_raw = float(line[1])
             b_raw = float(line[2])
 
-            colors.append(to_blender_color((r_raw, g_raw, b_raw)))
+            # colors.append(to_blender_color((r_raw, g_raw, b_raw)))
+            colors.append((r_raw, g_raw, b_raw))
             names.append(line[4])
 
         return palette_name, names, colors
@@ -348,7 +367,8 @@ def import_palette(path: str):
             g_raw = float(color[2])
             b_raw = float(color[3])
 
-            colors.append(to_blender_color((r_raw, g_raw, b_raw)))
+            # colors.append(to_blender_color((r_raw, g_raw, b_raw)))
+            colors.append((r_raw, g_raw, b_raw))
 
         names = [i[1] for i in names][9:]
         colors = colors[9:]
@@ -378,7 +398,8 @@ def import_palette(path: str):
             b_raw = float(line[2]) / 255
             name = " ".join(line[3:])
 
-            colors.append(to_blender_color((r_raw, g_raw, b_raw)))
+            # colors.append(to_blender_color((r_raw, g_raw, b_raw)))
+            colors.append((r_raw, g_raw, b_raw))
             names.append(name)
 
         return palette_name, names, colors
@@ -402,7 +423,8 @@ def export_palette(colors: list, path: str, ccb_header_path: str = None):
             print(len(colors), file=out)
 
             for color in colors:
-                rgb = from_blender_color(tuple(color.color))
+                # rgb = from_blender_color(tuple(color.color))
+                rgb = tuple(color.color)
                 print(
                     f"{rgb[0]:.6f}",
                     f"{rgb[1]:.6f}",
@@ -421,7 +443,8 @@ def export_palette(colors: list, path: str, ccb_header_path: str = None):
             print("Columns: 0", file=out)
 
             for color in colors:
-                rgb = from_blender_color(tuple(color.color))
+                # rgb = from_blender_color(tuple(color.color))
+                rgb = tuple(color.color)
                 rgb_int = [int(x * 255) for x in rgb]
                 print(
                     f"{rgb_int[0]}",
@@ -522,7 +545,13 @@ def select_by_color(tolerance: float, color: tuple, ignore_hsv):
                 obj.data.polygons[k].select = True
 
 
-def combine_layers(channels: str, channels_list: list, channels_values: list, layers: list):
+def combine_layers(
+    channels: str,
+    channels_list: list,
+    channels_values: list,
+    channels_gamma: list,
+    layers: list
+):
     """Assign color to active Color attribute from multiple channels."""
 
     obj = bpy.context.object
@@ -560,8 +589,28 @@ def combine_layers(channels: str, channels_list: list, channels_values: list, la
         for i, l in enumerate(obj.data.loops):
             for j in range(3):
                 color_attribute.data[i].color[j] = color_map(i, 3)
+        
+        if channels_gamma[3] == "Gamma":
+            for i, l in enumerate(obj.data.loops):
+                for j in range(3):
+                    color_attribute.data[i].color[j] = gamma_correct(color_attribute.data[i].color[j])
+
+        if channels_gamma[3] == "Inverse":
+            for i, l in enumerate(obj.data.loops):
+                for j in range(3):
+                    color_attribute.data[i].color[j] = gamma_uncorrect(color_attribute.data[i].color[j])
+
         return
 
     for i, l in enumerate(obj.data.loops):
         for j in range(4):
             color_attribute.data[i].color[j] = color_map(i, j)
+
+    for j in range(4):
+        if channels_gamma[j] == "Gamma":
+            for i, l in enumerate(obj.data.loops):
+                color_attribute.data[i].color[j] = gamma_correct(color_attribute.data[i].color[j])
+
+        if channels_gamma[j] == "Inverse":
+            for i, l in enumerate(obj.data.loops):
+                color_attribute.data[i].color[j] = gamma_uncorrect(color_attribute.data[i].color[j])
