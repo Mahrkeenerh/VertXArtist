@@ -18,7 +18,11 @@ All-in-one Blender Vertex Painting tools. Adds support for External Palettes and
 
 # Utilize Color Layers
 
+Now supporting Blender gamma corrections.
+
 ![Layers](/docu/layers.gif)
+
+![Gamma layer correction](/docu/gamma.png)
 
 
 
