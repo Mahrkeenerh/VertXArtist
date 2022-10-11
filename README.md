@@ -24,6 +24,9 @@ Now supporting Blender gamma corrections.
 
 ![Gamma layer correction](/docu/gamma.png)
 
+- `Gamma correction` - Blender gamma color transformation, from `Raw` to `Standard`
+- `Inverse correction` - Inverse correction, from `Standard` to `Raw`
+
 
 
 # Preview and Apply Color Transformations

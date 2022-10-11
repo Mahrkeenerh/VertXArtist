@@ -8,17 +8,18 @@ import colorsys
 import bpy
 
 
+# Gamma correction and inverse gamma correction may be reversed
+def inverse_gamma(c: float):
+    """Gamma uncorrection."""
+
+    c = min(max(0, c), 1)
+    c = c / 12.92 if c < 0.04045 else math.pow((c + 0.055) / 1.055, 2.4)
+
+    return c
+
+
 def gamma_correct(c: float):
     """Gamma correction."""
-
-    c *= 255
-    c = min(max(0, c), 255) / 255
-
-    return c / 12.92 if c < 0.04045 else math.pow((c + 0.055) / 1.055, 2.4)
-
-
-def gamma_uncorrect(c: float):
-    """Gamma uncorrection."""
 
     c = max(0.0, c * 12.92) if c < 0.0031308 else 1.055 * math.pow(c, 1.0 / 2.4) - 0.055
     c = max(min(int(c * 255 + 0.5), 255), 0)
@@ -26,40 +27,42 @@ def gamma_uncorrect(c: float):
     return c / 255
 
 
-def to_blender_color(rgb):
-    """Gamma correction."""
-
-    r = rgb[0] * 255
-    g = rgb[1] * 255
-    b = rgb[2] * 255
-
-    r = min(max(0, r), 255) / 255
-    g = min(max(0, g), 255) / 255
-    b = min(max(0, b), 255) / 255
-
-    r = r / 12.92 if r < 0.04045 else math.pow((r + 0.055) / 1.055, 2.4)
-    g = g / 12.92 if g < 0.04045 else math.pow((g + 0.055) / 1.055, 2.4)
-    b = b / 12.92 if b < 0.04045 else math.pow((b + 0.055) / 1.055, 2.4)
-
-    return r, g, b
-
-
-def from_blender_color(rgb):
+def inverse_gamma_color(rgb):
     """Gamma uncorrection."""
 
-    r = rgb[0]
-    g = rgb[1]
-    b = rgb[2]
+    # r = rgb[0] * 255
+    # g = rgb[1] * 255
+    # b = rgb[2] * 255
 
-    r = max(0.0, r * 12.92) if r < 0.0031308 else 1.055 * math.pow(r, 1.0 / 2.4) - 0.055
-    g = max(0.0, g * 12.92) if g < 0.0031308 else 1.055 * math.pow(g, 1.0 / 2.4) - 0.055
-    b = max(0.0, b * 12.92) if b < 0.0031308 else 1.055 * math.pow(b, 1.0 / 2.4) - 0.055
+    # r = min(max(0, r), 255) / 255
+    # g = min(max(0, g), 255) / 255
+    # b = min(max(0, b), 255) / 255
 
-    r = max(min(int(r * 255 + 0.5), 255), 0)
-    g = max(min(int(g * 255 + 0.5), 255), 0)
-    b = max(min(int(b * 255 + 0.5), 255), 0)
+    # r = r / 12.92 if r < 0.04045 else math.pow((r + 0.055) / 1.055, 2.4)
+    # g = g / 12.92 if g < 0.04045 else math.pow((g + 0.055) / 1.055, 2.4)
+    # b = b / 12.92 if b < 0.04045 else math.pow((b + 0.055) / 1.055, 2.4)
 
-    return r / 255, g / 255, b / 255
+    # return r, g, b
+    return inverse_gamma(rgb[0]), inverse_gamma(rgb[1]), inverse_gamma(rgb[2])
+
+
+def gamma_correct_color(rgb):
+    """Gamma correction."""
+
+    # r = rgb[0]
+    # g = rgb[1]
+    # b = rgb[2]
+
+    # r = max(0.0, r * 12.92) if r < 0.0031308 else 1.055 * math.pow(r, 1.0 / 2.4) - 0.055
+    # g = max(0.0, g * 12.92) if g < 0.0031308 else 1.055 * math.pow(g, 1.0 / 2.4) - 0.055
+    # b = max(0.0, b * 12.92) if b < 0.0031308 else 1.055 * math.pow(b, 1.0 / 2.4) - 0.055
+
+    # r = max(min(int(r * 255 + 0.5), 255), 0)
+    # g = max(min(int(g * 255 + 0.5), 255), 0)
+    # b = max(min(int(b * 255 + 0.5), 255), 0)
+
+    # return r / 255, g / 255, b / 255
+    return gamma_correct(rgb[0]), gamma_correct(rgb[1]), gamma_correct(rgb[2])
 
 
 def print_props(inst, max_len=50):
@@ -79,10 +82,14 @@ last_mode = "POLYGON"
 mode_bools = (False, False)
 last_selection = []
 request_refresh = False
+last_view_transform = None
 
 
 def set_restricted_color(color: tuple, new_color: tuple, channels: str):
     """Set color according to restrictions."""
+
+    if bpy.context.scene.view_settings.view_transform != "Raw":
+        new_color = inverse_gamma_color(new_color)
 
     if "R" in channels:
         color[0] = new_color[0]
@@ -210,7 +217,10 @@ def on_colors_change(colors: list, channels: str):
 def refresh_colors(force: bool = False):
     """Handle selection changes, return active color and object colors"""
 
-    global loop_data_color, last_active_loop, last_mode, mode_bools, last_selection, request_refresh
+    global loop_data_color, last_active_loop, last_mode, mode_bools, last_selection, request_refresh, last_view_transform
+
+    if last_view_transform is None:
+        last_view_transform = bpy.context.scene.view_settings.view_transform
 
     output_size = 2
 
@@ -290,7 +300,10 @@ def refresh_colors(force: bool = False):
     # if len(object_colors) == 0:
     #     return (None, ) * output_size
 
-    if not selection_changed and not mode_changed and not force and not request_refresh:
+    view_transform_changed = bpy.context.scene.view_settings.view_transform != last_view_transform
+    last_view_transform = bpy.context.scene.view_settings.view_transform
+
+    if not selection_changed and not mode_changed and not force and not request_refresh and not view_transform_changed:
         return (None, ) * output_size
 
     if mode_changed:
@@ -322,6 +335,11 @@ def refresh_colors(force: bool = False):
         last_active_loop = [i for i, x in enumerate(loop_data_color) if x["color"] == color][0]
 
     request_refresh = False
+
+    # Gamma correction
+    if bpy.context.scene.view_settings.view_transform != "Raw":
+        color = gamma_correct_color(color)
+        colors = [gamma_correct_color(x) for x in colors]
 
     return color, colors
 
@@ -598,7 +616,7 @@ def combine_layers(
         if channels_gamma[3] == "Inverse":
             for i, l in enumerate(obj.data.loops):
                 for j in range(3):
-                    color_attribute.data[i].color[j] = gamma_uncorrect(color_attribute.data[i].color[j])
+                    color_attribute.data[i].color[j] = inverse_gamma(color_attribute.data[i].color[j])
 
         return
 
@@ -613,4 +631,4 @@ def combine_layers(
 
         if channels_gamma[j] == "Inverse":
             for i, l in enumerate(obj.data.loops):
-                color_attribute.data[i].color[j] = gamma_uncorrect(color_attribute.data[i].color[j])
+                color_attribute.data[i].color[j] = inverse_gamma(color_attribute.data[i].color[j])
