@@ -632,3 +632,63 @@ def combine_layers(
         if channels_gamma[j] == "Inverse":
             for i, l in enumerate(obj.data.loops):
                 color_attribute.data[i].color[j] = inverse_gamma(color_attribute.data[i].color[j])
+
+
+def get_active_tris():
+    """Get positions of selected triangles."""
+
+    obj = bpy.context.object
+    if obj is None:
+        return None
+
+    # tris = []
+
+    # # for polygon in obj.data.polygons:
+    # #     if polygon.select:
+    # #         for i in range(0, len(polygon.vertices), 3):
+    # #             tris.append(polygon.vertices[i:i+3])
+    # # obj.data.loop_triangles
+    # for tri in obj.data.loop_triangles:
+    #     if tri.select:
+    #         tris.append(tri.vertices)
+
+    # return tris
+
+    try:
+        poly_mode = obj.data.use_paint_mask
+    except AttributeError:
+        return []
+    
+    if not poly_mode:
+        return []
+
+    selected_poly_loops = []
+
+    for polygon in obj.data.polygons:
+        if polygon.select:
+            poly_set = set()
+            for i in polygon.loop_indices:
+                # selected_poly_loops.append(i)
+                poly_set.add(i)
+
+            selected_poly_loops.append(poly_set)
+
+    tris = []
+
+    mat = obj.matrix_world
+
+    for tri in obj.data.loop_triangles:
+        tri_set = set(tri.loops)
+        for poly_set in selected_poly_loops:
+            if poly_set.issuperset(tri_set):
+                # tris.append([obj.data.vertices[i] for i in tri.vertices])
+                # v = ob.data.vertices[0].co
+# mat = ob.matrix_world
+
+# # Multiply matrix by vertex (see also: https://developer.blender.org/T56276)
+# loc = mat @ v
+                tris_coords = [i.co for i in obj.data.vertices]
+                tris.append([mat @ tris_coords[i] for i in tri.vertices])
+                break
+
+    return tris
