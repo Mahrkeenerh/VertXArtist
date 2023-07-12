@@ -596,7 +596,9 @@ def combine_layers(
             return color_attributes[j].data[i].color[j]
 
         if layers[color_attributes[j].name].channels == "A":
-            return color_attributes[j].data[i].color[0]
+            obj_color = tuple(color_attributes[j].data[i].color)[:-1]
+            obj_hsv_color = colorsys.rgb_to_hsv(*obj_color)
+            return obj_hsv_color[2]
 
         if channels == "A":
             return color_attributes[j].data[i].color[3]
