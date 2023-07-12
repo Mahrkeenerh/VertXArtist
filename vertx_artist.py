@@ -683,10 +683,10 @@ def get_active_tris():
             if poly_set.issuperset(tri_set):
                 # tris.append([obj.data.vertices[i] for i in tri.vertices])
                 # v = ob.data.vertices[0].co
-# mat = ob.matrix_world
+                # mat = ob.matrix_world
 
-# # Multiply matrix by vertex (see also: https://developer.blender.org/T56276)
-# loc = mat @ v
+                # # Multiply matrix by vertex (see also: https://developer.blender.org/T56276)
+                # loc = mat @ v
                 tris_coords = [i.co for i in obj.data.vertices]
                 tris.append([mat @ tris_coords[i] for i in tri.vertices])
                 break
