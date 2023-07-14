@@ -515,12 +515,16 @@ def select_by_color(tolerance: float, color: tuple, ignore_hsv):
     color = tuple(color)
     hsv_color = colorsys.rgb_to_hsv(*color)
 
+    # Deselect all
+    for vertex in obj.data.vertices:
+        vertex.select = False
+    for polygon in obj.data.polygons:
+        polygon.select = False
+    for edge in obj.data.edges:
+        edge.select = False
+
     if vert_mode:
         vert_colors = {}
-
-        for vertex in obj.data.vertices:
-            if vertex.select:
-                vertex.select = False
 
         for i, l in enumerate(obj.data.loops):
             obj_color = tuple(color_attribute.data[i].color)[:-1]
@@ -542,22 +546,18 @@ def select_by_color(tolerance: float, color: tuple, ignore_hsv):
         poly_colors = {}
 
         for polygon in obj.data.polygons:
-            if polygon.select:
-                polygon.select = False
-
-        for polygon in obj.data.polygons:
             for j in polygon.loop_indices:
                 obj_color = tuple(color_attribute.data[j].color)[:-1]
                 obj_hsv_color = colorsys.rgb_to_hsv(*obj_color)
 
                 if polygon.index not in poly_colors:
                     poly_colors[polygon.index] = [0, 0]
-                
+
                 if compare_hsv(obj_hsv_color, hsv_color, ignore_hsv):
                     poly_colors[polygon.index][0] += 1
                 
                 poly_colors[polygon.index][1] += 1
-        
+
         for k, v in poly_colors.items():
             if v[0] and v[0] / v[1] >= (1 - tolerance):
                 obj.data.polygons[k].select = True
