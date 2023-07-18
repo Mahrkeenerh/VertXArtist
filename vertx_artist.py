@@ -5,7 +5,7 @@ import math
 import re
 import colorsys
 
-import bpy
+# import bpy
 
 
 # Gamma correction and inverse gamma correction may be reversed
@@ -320,7 +320,7 @@ def refresh_colors(force: bool = False):
 
         for i, l in enumerate(obj.data.loops):
             color = tuple(color_attribute.data[i].color)[:-1]
-            
+
             element = [x for x in loop_data_color if x["color"] == color]
 
             if len(element) == 0:
@@ -482,9 +482,9 @@ def compare_hsv(color1: tuple, color2: tuple, ignore_hsv: tuple):
     """Compare the two colors, ignoring HSV flags."""
 
     equals = (
-        (color1[0] == color2[0]) or ignore_hsv[0],
-        (color1[1] == color2[1]) or ignore_hsv[1],
-        (color1[2] == color2[2]) or ignore_hsv[2]
+        math.isclose(color1[0], color2[0], rel_tol=1e-5) or ignore_hsv[0],
+        math.isclose(color1[1], color2[1], rel_tol=1e-5) or ignore_hsv[1],
+        math.isclose(color1[2], color2[2], rel_tol=1e-5) or ignore_hsv[2]
     )
 
     return all(equals)
@@ -492,6 +492,9 @@ def compare_hsv(color1: tuple, color2: tuple, ignore_hsv: tuple):
 
 def select_by_color(tolerance: float, color: tuple, ignore_hsv):
     """Select all vertices/polygons with color within tolerance."""
+
+    # blender fuckity
+    color = inverse_gamma_color(color)
 
     obj = bpy.context.object
     if obj is None:
@@ -694,3 +697,53 @@ def get_active_tris():
                 break
 
     return tris
+
+
+def calculate_alpha(neg_axis, pos_axis, min_z, max_z, z):
+    """Calculate alpha value for vertex."""
+    div = max_z - min_z if max_z - min_z != 0 else 1
+    alpha = (z - min_z) / div * (pos_axis - neg_axis) + neg_axis
+    return alpha
+
+
+def apply_alpha_gradient(neg_axis: float, pos_axis: float):
+    """Create alpha gradient on all selected objects"""
+
+    objects = bpy.context.selected_objects
+    if len(objects) == 0:
+        return None
+
+    for obj in objects:
+        if obj.type != "MESH":
+            continue
+
+        if obj.data.color_attributes.active_color is None:
+            obj.data.color_attributes.new(name="Attribute", domain="CORNER", type="BYTE_COLOR")
+
+    obj_verts_coords = [obj.matrix_world @ v.co for obj in objects for v in obj.data.vertices]
+    min_z = min(obj_verts_coords, key=lambda x: x[2])[2]
+    max_z = max(obj_verts_coords, key=lambda x: x[2])[2]
+
+    rolling_i = 0
+    for obj in objects:
+        if obj.type != "MESH":
+            continue
+
+        channels = obj.sna_layers[obj.data.color_attributes.active_color.name].channels
+
+        vert_corners = [[] for _ in range(len(obj.data.vertices))]
+        for loop in obj.data.loops:
+            vert_corners[loop.vertex_index].append(loop.index)
+
+        for i in range(len(obj.data.vertices)):
+            alpha = calculate_alpha(neg_axis, pos_axis, min_z, max_z, obj_verts_coords[rolling_i + i][2])
+
+            for corner in vert_corners[i]:
+                if channels == 'A':
+                    obj.data.color_attributes.active_color.data[corner].color[0] = alpha
+                    obj.data.color_attributes.active_color.data[corner].color[1] = alpha
+                    obj.data.color_attributes.active_color.data[corner].color[2] = alpha
+                else:
+                    obj.data.color_attributes.active_color.data[corner].color[3] = alpha
+
+        rolling_i += len(obj.data.vertices)
