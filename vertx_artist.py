@@ -709,6 +709,7 @@ def calculate_alpha(neg_axis, pos_axis, min_z, max_z, z):
 def apply_alpha_gradient(neg_axis: float, pos_axis: float):
     """Create alpha gradient on all selected objects"""
 
+    active_obj = bpy.context.object
     objects = bpy.context.selected_objects
     if len(objects) == 0:
         return None
@@ -718,7 +719,10 @@ def apply_alpha_gradient(neg_axis: float, pos_axis: float):
             continue
 
         if obj.data.color_attributes.active_color is None:
-            obj.data.color_attributes.new(name="Attribute", domain="CORNER", type="BYTE_COLOR")
+            bpy.context.view_layer.objects.active = obj
+            bpy.ops.geometry.color_attribute_add(name='Attribute', domain='CORNER', data_type='BYTE_COLOR')
+
+    bpy.context.view_layer.objects.active = active_obj
 
     obj_verts_coords = [obj.matrix_world @ v.co for obj in objects for v in obj.data.vertices]
     min_z = min(obj_verts_coords, key=lambda x: x[2])[2]
