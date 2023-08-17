@@ -5,7 +5,7 @@ import math
 import re
 import colorsys
 
-# import bpy
+import bpy
 
 
 # Gamma correction and inverse gamma correction may be reversed
@@ -157,7 +157,7 @@ def set_color(color: tuple, channels: str):
 def on_color_change(color: tuple, channels: str):
     """Update color of everything with same color."""
 
-    global request_refresh
+    global request_refresh, loop_data_color
 
     obj = bpy.context.object
     if obj is None:
@@ -170,7 +170,7 @@ def on_color_change(color: tuple, channels: str):
 
     if last_active_loop is None:
         return None
-    
+
     if not loop_data_color:
         return None
 
@@ -181,13 +181,15 @@ def on_color_change(color: tuple, channels: str):
             channels
         )
 
-    request_refresh = True
+    loop_data_color[last_active_loop]["color"] = tuple(color)
+
+    # request_refresh = True
 
 
 def on_colors_change(colors: list, channels: str):
     """Update colors of everything with same color."""
 
-    global request_refresh
+    global request_refresh, loop_data_color
 
     obj = bpy.context.object
     if obj is None:
@@ -197,10 +199,10 @@ def on_colors_change(colors: list, channels: str):
 
     if color_attribute is None:
         return None
-    
+
     if not loop_data_color:
         return None
-    
+
     for i in range(len(colors)):
         color = tuple(colors[i].color)
         if color != loop_data_color[i]["color"]:
@@ -210,11 +212,12 @@ def on_colors_change(colors: list, channels: str):
                     color,
                     channels
                 )
+            loop_data_color[i]["color"] = color
 
-    request_refresh = True
+    # request_refresh = True
 
 
-def refresh_colors(force: bool = False):
+def refresh_colors(force: bool = False, only_select: bool = False, color: tuple = None):
     """Handle selection changes, return active color and object colors"""
 
     global loop_data_color, last_active_loop, last_mode, mode_bools, last_selection, request_refresh, last_view_transform
@@ -249,6 +252,9 @@ def refresh_colors(force: bool = False):
 
     object_colors = {}
     selection_changed = False
+
+    if only_select:
+        return color, None
 
     # vertices
     if vert_mode or (not poly_mode and last_mode == "VERTEX"):
@@ -478,14 +484,23 @@ def export_palette(colors: list, path: str, ccb_header_path: str = None):
     return
 
 
-def compare_hsv(color1: tuple, color2: tuple, ignore_hsv: tuple):
+def compare_hsv(rgb1: tuple, rgb2: tuple, hsv2: tuple, ignore_hsv: tuple):
     """Compare the two colors, ignoring HSV flags."""
 
-    equals = (
-        math.isclose(color1[0], color2[0], rel_tol=1e-5) or ignore_hsv[0],
-        math.isclose(color1[1], color2[1], rel_tol=1e-5) or ignore_hsv[1],
-        math.isclose(color1[2], color2[2], rel_tol=1e-5) or ignore_hsv[2]
-    )
+    hsv1 = colorsys.rgb_to_hsv(*rgb1)
+    if any(ignore_hsv):
+
+        equals = (
+            math.isclose(hsv1[0], hsv2[0], rel_tol=1e-5) or ignore_hsv[0],
+            math.isclose(hsv1[1], hsv2[1], rel_tol=1e-5) or ignore_hsv[1],
+            math.isclose(hsv1[2], hsv2[2], rel_tol=1e-5) or ignore_hsv[2]
+        )
+    else:
+        equals = (
+            math.isclose(rgb1[0], rgb2[0], rel_tol=1e-5),
+            math.isclose(rgb1[1], rgb2[1], rel_tol=1e-5),
+            math.isclose(rgb1[2], rgb2[2], rel_tol=1e-5)
+        )
 
     return all(equals)
 
@@ -531,12 +546,11 @@ def select_by_color(tolerance: float, color: tuple, ignore_hsv):
 
         for i, l in enumerate(obj.data.loops):
             obj_color = tuple(color_attribute.data[i].color)[:-1]
-            obj_hsv_color = colorsys.rgb_to_hsv(*obj_color)
 
             if l.vertex_index not in vert_colors:
                 vert_colors[l.vertex_index] = [0, 0]
 
-            if compare_hsv(obj_hsv_color, hsv_color, ignore_hsv):
+            if compare_hsv(obj_color, color, hsv_color, ignore_hsv):
                 vert_colors[l.vertex_index][0] += 1
 
             vert_colors[l.vertex_index][1] += 1
@@ -551,12 +565,11 @@ def select_by_color(tolerance: float, color: tuple, ignore_hsv):
         for polygon in obj.data.polygons:
             for j in polygon.loop_indices:
                 obj_color = tuple(color_attribute.data[j].color)[:-1]
-                obj_hsv_color = colorsys.rgb_to_hsv(*obj_color)
 
                 if polygon.index not in poly_colors:
                     poly_colors[polygon.index] = [0, 0]
 
-                if compare_hsv(obj_hsv_color, hsv_color, ignore_hsv):
+                if compare_hsv(obj_color, color, hsv_color, ignore_hsv):
                     poly_colors[polygon.index][0] += 1
                 
                 poly_colors[polygon.index][1] += 1
