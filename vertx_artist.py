@@ -121,6 +121,7 @@ def set_color(color: tuple, channels: str):
     if bpy.context.mode == "EDIT_MESH":
         mode = list(bpy.context.tool_settings.mesh_select_mode)
         bm = bmesh.from_edit_mesh(obj.data)
+        active_layer = bm.loops.layers.color.get(color_attribute.name)
 
         # edge or vertex selection
         if mode[0] or mode[1]:
@@ -128,7 +129,7 @@ def set_color(color: tuple, channels: str):
                 if vert.select:
                     for loop in vert.link_loops:
                         set_restricted_color(
-                            loop[bm.loops.layers.color.active],
+                            loop[active_layer],
                             color,
                             channels
                         )
@@ -139,7 +140,7 @@ def set_color(color: tuple, channels: str):
                 if face.select:
                     for loop in face.loops:
                         set_restricted_color(
-                            loop[bm.loops.layers.color.active],
+                            loop[active_layer],
                             color,
                             channels
                         )
@@ -205,10 +206,11 @@ def on_color_change(color: tuple, channels: str):
 
     if bpy.context.mode == "EDIT_MESH":
         bm = bmesh.from_edit_mesh(obj.data)
+        active_layer = bm.loops.layers.color.get(color_attribute.name)
 
         for i in loop_data_color[last_active_loop]["loops"]:
             set_restricted_color(
-                i[bm.loops.layers.color.active],
+                i[active_layer],
                 color,
                 channels
             )
@@ -245,13 +247,14 @@ def on_colors_change(colors: list, channels: str):
 
     if bpy.context.mode == "EDIT_MESH":
         bm = bmesh.from_edit_mesh(obj.data)
+        active_layer = bm.loops.layers.color.get(color_attribute.name)
 
         for i in range(len(colors)):
             color = tuple(colors[i].color)
             if color != loop_data_color[i]["color"]:
                 for j in loop_data_color[i]["loops"]:
                     set_restricted_color(
-                        j[bm.loops.layers.color.active],
+                        j[active_layer],
                         color,
                         channels
                     )
@@ -325,6 +328,7 @@ def refresh_colors(force: bool = False, only_select: bool = False, color: tuple 
 
     if bpy.context.mode == "EDIT_MESH":
         bm = bmesh.from_edit_mesh(obj.data)
+        active_layer = bm.loops.layers.color.get(color_attribute.name)
 
         # vertices
         if vert_mode or (not poly_mode and last_mode == "VERTEX"):
@@ -338,10 +342,10 @@ def refresh_colors(force: bool = False, only_select: bool = False, color: tuple 
                 last_mode = "VERTEX"
             
             if not selected_vert_idx:
-                selected_vert_idx = last_selection
+                return (None, ) * output_size
 
             for loop in selected_vert_idx:
-                color = tuple(loop[bm.loops.layers.color.active])[:-1]
+                color = tuple(loop[active_layer])[:-1]
                 object_colors[color] = object_colors.get(color, 0) + 1
 
             if selected_vert_idx != last_selection:
@@ -361,10 +365,10 @@ def refresh_colors(force: bool = False, only_select: bool = False, color: tuple 
                 last_mode = "POLYGON"
 
             if not selected_poly_loops:
-                selected_poly_loops = last_selection
+                return (None, ) * output_size
 
             for loop in selected_poly_loops:
-                color = tuple(loop[bm.loops.layers.color.active])[:-1]
+                color = tuple(loop[active_layer])[:-1]
                 object_colors[color] = object_colors.get(color, 0) + 1
 
             if selected_poly_loops != last_selection:
@@ -384,7 +388,7 @@ def refresh_colors(force: bool = False, only_select: bool = False, color: tuple 
                 last_mode = "VERTEX"
             
             if not selected_vert_idx:
-                selected_vert_idx = last_selection
+                return (None, ) * output_size
 
             for i, l in enumerate(obj.data.loops):
                 if l.vertex_index not in selected_vert_idx:
@@ -409,7 +413,7 @@ def refresh_colors(force: bool = False, only_select: bool = False, color: tuple 
                 last_mode = "POLYGON"
 
             if not selected_poly_loops:
-                selected_poly_loops = last_selection
+                return (None, ) * output_size
 
             for i in selected_poly_loops:
                 color = tuple(color_attribute.data[i].color)[:-1]
@@ -434,10 +438,11 @@ def refresh_colors(force: bool = False, only_select: bool = False, color: tuple 
     loop_data_color = []
 
     if bpy.context.mode == "EDIT_MESH":
-        bm = bmesh.from_edit_mesh(obj.data)
+        active_layer = bm.loops.layers.color.get(color_attribute.name)
+
         for vert in bm.verts:
             for loop in vert.link_loops:
-                color = tuple(loop[bm.loops.layers.color.active])[:-1]
+                color = tuple(loop[active_layer])[:-1]
 
                 element = [x for x in loop_data_color if x["color"] == color]
 
@@ -445,6 +450,7 @@ def refresh_colors(force: bool = False, only_select: bool = False, color: tuple 
                     loop_data_color.append({"color": color, "loops": [loop]})
                 else:
                     element[0]["loops"].append(loop)
+
     if bpy.context.mode == "PAINT_VERTEX":
         for i in range(len(obj.data.loops)):
             color = tuple(color_attribute.data[i].color)[:-1]
@@ -671,6 +677,7 @@ def select_by_color(tolerance: float, color: tuple, ignore_hsv):
 
     if bpy.context.mode == "EDIT_MESH":
         bm = bmesh.from_edit_mesh(obj.data)
+        active_layer = bm.loops.layers.color.get(color_attribute.name)
 
         # Deselect all
         for vert in bm.verts:
@@ -690,7 +697,7 @@ def select_by_color(tolerance: float, color: tuple, ignore_hsv):
             bm.verts.ensure_lookup_table()
             for vert in bm.verts:
                 for loop in vert.link_loops:
-                    obj_color = tuple(loop[bm.loops.layers.color.active])[:-1]
+                    obj_color = tuple(loop[active_layer])[:-1]
 
                     if vert.index not in vert_colors:
                         vert_colors[vert.index] = [0, 0]
@@ -714,7 +721,7 @@ def select_by_color(tolerance: float, color: tuple, ignore_hsv):
             bm.faces.ensure_lookup_table()
             for face in bm.faces:
                 for loop in face.loops:
-                    obj_color = tuple(loop[bm.loops.layers.color.active])[:-1]
+                    obj_color = tuple(loop[active_layer])[:-1]
 
                     if face.index not in poly_colors:
                         poly_colors[face.index] = [0, 0]
@@ -729,7 +736,6 @@ def select_by_color(tolerance: float, color: tuple, ignore_hsv):
                     bm.faces[k].select = True
 
         bm.select_flush_mode()
-        bmesh.update_edit_mesh(obj.data)
 
     if bpy.context.mode == "PAINT_VERTEX":
         if vert_mode:
@@ -806,7 +812,7 @@ def combine_layers(
             if j < 3:
                 return loop[color_attributes[j]][j]
 
-            if layers[channels[j].name].channels == "A":
+            if layers[channels_list[j]].channels == "A":
                 obj_color = tuple(loop[color_attributes[j]])[:-1]
                 obj_hsv_color = colorsys.rgb_to_hsv(*obj_color)
                 return obj_hsv_color[2]
@@ -819,7 +825,8 @@ def combine_layers(
         if channels == "A":
             for vert in bm.verts:
                 for loop in vert.link_loops:
-                    loop[color_attribute] = color_map(loop, 3)
+                    for j in range(3):
+                        loop[color_attribute][j] = color_map(loop, 3)
 
             if channels_gamma[3] == "Gamma":
                 for vert in bm.verts:
@@ -911,6 +918,7 @@ def combine_layers(
     if bpy.context.mode == "PAINT_VERTEX":
         combine_layers_paint()
 
+
 def get_active_tris():
     """Get positions of selected triangles."""
 
@@ -996,30 +1004,80 @@ def apply_alpha_gradient(neg_axis: float, pos_axis: float):
 
     bpy.context.view_layer.objects.active = active_obj
 
-    obj_verts_coords = [obj.matrix_world @ v.co for obj in objects for v in obj.data.vertices]
+    if bpy.context.mode == "OBJECT":
+        obj_verts_coords = [obj.matrix_world @ v.co for obj in objects for v in obj.data.vertices]
+    elif bpy.context.mode == "PAINT_VERTEX":
+        obj_verts_coords = [active_obj.matrix_world @ v.co for v in active_obj.data.vertices if v.select]
+        objects = [active_obj]
+    elif bpy.context.mode == "EDIT_MESH":
+        obj_verts_coords = []
+        for obj in objects:
+            if obj.type != "MESH":
+                continue
+
+            bm = bmesh.from_edit_mesh(obj.data)
+            obj_verts_coords.extend([obj.matrix_world @ v.co for v in bm.verts if v.select])
+
     min_z = min(obj_verts_coords, key=lambda x: x[2])[2]
     max_z = max(obj_verts_coords, key=lambda x: x[2])[2]
 
-    rolling_i = 0
-    for obj in objects:
-        if obj.type != "MESH":
-            continue
+    if bpy.context.mode == "EDIT_MESH":
+        rolling_i = 0
+        for i, obj in enumerate(objects):
+            if obj.type != "MESH":
+                continue
 
-        channels = obj.sna_layers[obj.data.color_attributes.active_color.name].channels
+            bm = bmesh.from_edit_mesh(obj.data)
+            active_name = obj.data.color_attributes.active_color.name
+            channels = obj.sna_layers[active_name].channels
+            color_attribute = bm.loops.layers.color.get(active_name)
 
-        vert_corners = [[] for _ in range(len(obj.data.vertices))]
-        for loop in obj.data.loops:
-            vert_corners[loop.vertex_index].append(loop.index)
+            for vert in bm.verts:
+                if not vert.select:
+                    continue
 
-        for i in range(len(obj.data.vertices)):
-            alpha = calculate_alpha(neg_axis, pos_axis, min_z, max_z, obj_verts_coords[rolling_i + i][2])
+                alpha = calculate_alpha(neg_axis, pos_axis, min_z, max_z, obj_verts_coords[rolling_i][2])
+                rolling_i += 1
 
-            for corner in vert_corners[i]:
-                if channels == 'A':
-                    obj.data.color_attributes.active_color.data[corner].color[0] = alpha
-                    obj.data.color_attributes.active_color.data[corner].color[1] = alpha
-                    obj.data.color_attributes.active_color.data[corner].color[2] = alpha
+                for loop in vert.link_loops:
+                    if channels == 'A':
+                        loop[color_attribute][0] = alpha
+                        loop[color_attribute][1] = alpha
+                        loop[color_attribute][2] = alpha
+                    else:
+                        loop[color_attribute][3] = alpha
+
+            bmesh.update_edit_mesh(obj.data)
+
+    else:
+        rolling_i = 0
+        for obj in objects:
+            if obj.type != "MESH":
+                continue
+
+            channels = obj.sna_layers[obj.data.color_attributes.active_color.name].channels
+
+            vert_corners = [[] for _ in range(len(obj.data.vertices))]
+            for loop in obj.data.loops:
+                vert_corners[loop.vertex_index].append(loop.index)
+
+            for i in range(len(obj.data.vertices)):
+                if bpy.context.mode == "PAINT_VERTEX":
+                    if not obj.data.vertices[i].select:
+                        continue
+                
+                    alpha = calculate_alpha(neg_axis, pos_axis, min_z, max_z, obj_verts_coords[rolling_i][2])
+                    rolling_i += 1
                 else:
-                    obj.data.color_attributes.active_color.data[corner].color[3] = alpha
+                    alpha = calculate_alpha(neg_axis, pos_axis, min_z, max_z, obj_verts_coords[rolling_i + i][2])
 
-        rolling_i += len(obj.data.vertices)
+                for corner in vert_corners[i]:
+                    if channels == 'A':
+                        obj.data.color_attributes.active_color.data[corner].color[0] = alpha
+                        obj.data.color_attributes.active_color.data[corner].color[1] = alpha
+                        obj.data.color_attributes.active_color.data[corner].color[2] = alpha
+                    else:
+                        obj.data.color_attributes.active_color.data[corner].color[3] = alpha
+
+            if bpy.context.mode != "PAINT_VERTEX":
+                rolling_i += len(obj.data.vertices)
