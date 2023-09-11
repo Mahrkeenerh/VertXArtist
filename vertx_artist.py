@@ -312,12 +312,8 @@ def refresh_object_colors():
         # vert or edge mode
         if bpy.context.tool_settings.mesh_select_mode[0] or bpy.context.tool_settings.mesh_select_mode[1]:
             for vert in bm.verts:
-                if vert.select:
-                    for corner_idx, corner in enumerate(vert.link_loops):
-                        get_color(corner_idx, 1)
-                else:
-                    for corner_idx, corner in enumerate(vert.link_loops):
-                        get_color(corner_idx, 0)
+                for corner_idx, corner in enumerate(vert.link_loops):
+                    get_color(corner_idx, int(vert.select))
         # faces
         if bpy.context.tool_settings.mesh_select_mode[2]:
             for face in bm.faces:
@@ -329,12 +325,9 @@ def refresh_object_colors():
                             break
                     return corner_list_idx
 
-                if face.select:
-                    for corner in face.loops:
-                        get_color(get_corner_idx(), 1)
-                else:
-                    for corner in face.loops:
-                        get_color(get_corner_idx(), 0)
+                for corner in face.loops:
+                    vert = corner.vert
+                    get_color(get_corner_idx(), int(face.select))
 
     active_color_index = max(colors.values(), key=lambda x: x[1])[0] if len(colors) > 0 else None
     colors = [x for x in colors.keys()]
@@ -797,10 +790,9 @@ def apply_alpha_gradient(neg_axis: float, pos_axis: float):
 
             bm = bmesh.from_edit_mesh(obj.data)
             obj_verts_coords.extend([obj.matrix_world @ v.co for v in bm.verts if v.select])
-            # print(obj.name)
-            # print([v.index for v in bm.verts])
-            # print([loop.index for v in bm.verts for loop in v.link_loops])
-            # print([loop.index for f in bm.faces for loop in f.loops])
+
+    if len(obj_verts_coords) == 0:
+        return
 
     min_z = min(obj_verts_coords, key=lambda x: x[2])[2]
     max_z = max(obj_verts_coords, key=lambda x: x[2])[2]
