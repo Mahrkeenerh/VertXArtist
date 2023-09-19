@@ -11,7 +11,15 @@ All-in-one Blender Vertex Painting tools. Adds support for External Palettes and
 
 
 
+# NOW IN EDIT MODE
+
+Most of the functionality has been moved to Edit mode, as it offers more flexibility and control.
+
+
+
 # Easily Fine-Tune Object Colors
+
+(The active color is no longer updated automatically, you need to press Refresh. This decision was made, as the operation is computationally expensive, and it was causing performance issues.)
 
 ![Adjust Object Colors](/docu/adjust_object_colors.gif)
 
@@ -64,6 +72,14 @@ The material only provides a visual preview.
 
 
 
+# Alpha Gradients
+
+They work for multiple objects, both in `Object` and `Edit` mode.
+
+![Alpha Gradients](/docu/alpha_gradients.gif)
+
+
+
 # Quick Access Pie Menu
 
 To enable Quick Access Pie Menu, you need to disable the default Blender shortcut for the same key, in the Vertex Paint window.
@@ -95,6 +111,14 @@ If you remove the addon completely, or you just didn't have it installed yet, th
 **`Warning`**: changing channels may result in unwanted behavior, because RGB channel holds no information about the alpha channel.
 
 ![Toggle Layer Editing](/docu/layer_override.png)
+
+
+
+# Eyedropper
+
+Added new Eyedropper functionality. You can sample any color on your screen (within Blender). It will also be copied to your clipboard (Windows and MacOS only, if you have a different OS, please let me know, I will add support for it).
+
+![Eyedropper](/docu/eyedropper.gif)
 
 
 
