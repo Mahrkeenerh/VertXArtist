@@ -572,7 +572,7 @@ def combine_layers(
 
     color_attributes = [None] * 4
 
-    def combine_layers_edit():
+    def combine_layers_bmesh():
         color_attribute = bm.loops.layers.color.get(new_layer_name)
         for channel in channels_list:
             for i in range(4):
@@ -632,7 +632,7 @@ def combine_layers(
                     for corner in vert.link_loops:
                         corner[color_attribute][j] = inverse_gamma(corner[color_attribute][j])
 
-    def combine_layers_paint():
+    def combine_layers_bpy():
         for col_attribute in obj.data.color_attributes:
             for i in range(4):
                 if col_attribute.name == channels_list[i]:
@@ -687,10 +687,10 @@ def combine_layers(
 
     if bpy.context.mode == "EDIT_MESH":
         bm = bmesh.from_edit_mesh(obj.data)
-        combine_layers_edit()
+        combine_layers_bmesh()
         bmesh.update_edit_mesh(obj.data)
-    if bpy.context.mode == "PAINT_VERTEX":
-        combine_layers_paint()
+    else:
+        combine_layers_bpy()
 
 
 def get_active_tris():
