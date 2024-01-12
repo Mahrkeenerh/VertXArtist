@@ -184,33 +184,46 @@ class VRTXA_OT_Refresh(bpy.types.Operator):
 
         # TODO FIX CORNER LOOKUP
         # FIX SORTING
-        import time
 
-        cur = time.time()
+        # indices = [i for i in range(len(colors))]
+        # sorter = zip(colors.items(), indices)
+        # sorter = sorted(sorter, key=lambda x: colorsys.rgb_to_hsv(*x[0][0]))
+
+        # colors = {x[0][0]: x[0][1] for x in sorter}
+        # # colors = {x[0][0]: [x[1], x[0][1][1]] for x in sorter}
+        # indices = [x[1] for x in sorter]
+
+        # sorted_colors = sorted(colors.items(), key=lambda x: colorsys.rgb_to_hsv(*x[0]))
 
         out_colors = [x for x in colors.keys()]
-        out_colors.sort(key=lambda rgb: colorsys.rgb_to_hsv(*rgb))
+        # indices = [i for i in range(len(out_colors))]
+
+        # sorter = zip(out_colors, indices)
+        # sorter = sorted(sorter, key=lambda x: colorsys.rgb_to_hsv(*x[0]))
+
+        # out_colors = [x[0] for x in sorter]
+        # indices = [x[1] for x in sorter]
+        # out_colors.sort(key=lambda rgb: colorsys.rgb_to_hsv(*rgb))
         # sorted_colors = sorter.sort(out_colors)
-        active_color_index = 0
-
-        end_time = time.time()
-
-        print("Time: " + str(end_time - cur))
+        # active_color_index = 0
         # active_color_index = max(colors.values(), key=lambda x: x[1])[0] if len(colors) > 0 else None
         # out_colors = [x for x in colors.keys()]
 
         # return active_color_index, out_colors
 
+        active_color_index = max(colors.values(), key=lambda x: x[1])[0] if len(colors) > 0 else None
+
         if active_color_index is None:
             return {"FINISHED"}
 
-
         ignore_color_change = True
 
-        # TODO change to remove all items and then add new ones when faster
+        to_remove_count = len(bpy.context.scene.vrtxa_object_colors) - len(out_colors)
+        if to_remove_count > len(out_colors):
+            bpy.context.scene.vrtxa_object_colors.clear()
+
         while len(bpy.context.scene.vrtxa_object_colors) > len(out_colors):
-            if len(bpy.context.scene.vrtxa_object_colors) > len(bpy.context.scene.vrtxa_object_colors) - 1:
-                bpy.context.scene.vrtxa_object_colors.remove(len(bpy.context.scene.vrtxa_object_colors) - 1)
+            bpy.context.scene.vrtxa_object_colors.remove(len(bpy.context.scene.vrtxa_object_colors) - 1)
 
         while len(bpy.context.scene.vrtxa_object_colors) < len(out_colors):
             new_color = bpy.context.scene.vrtxa_object_colors.add()

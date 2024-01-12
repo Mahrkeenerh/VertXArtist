@@ -35,7 +35,7 @@ class VRTXA_OT_ImportPalette(bpy.types.Operator, ImportHelper):
     bl_description = "Import a new palette and add it to the bottom"
     bl_options = {"REGISTER", "UNDO"}
     filter_glob: bpy.props.StringProperty(default='*.ccb;*.colors;*.gpl', options={'HIDDEN'})
-    replace: bpy.props.BoolProperty(name='replace', description='Replace current palette', default=False, options={'HIDDEN'})
+    replace: bpy.props.BoolProperty(name='replace', description='Replace current palette', default=False, options={'HIDDEN', 'SKIP_SAVE'})
     palette_index: bpy.props.IntProperty(name='palette_index', options={'HIDDEN'}, min=0)
 
     def execute(self, context):
@@ -154,7 +154,6 @@ class VRTXA_OT_ExportPalettes(bpy.types.Operator):
         return self.execute(context)
 
 
-# TODO FIX EXPORTING - check not working, default name sucks ...
 class VRTXA_OT_ExportPalette(bpy.types.Operator, ExportHelper):
     bl_idname = "vertx_artist.export_palette"
     bl_label = "Export a Palette"
@@ -166,14 +165,19 @@ class VRTXA_OT_ExportPalette(bpy.types.Operator, ExportHelper):
     file_extension: bpy.props.EnumProperty(
         name='file_extension', description='File extension',
         items=[
-            ('ccb', 'ccb', '', 0),
-            ('gpl', 'gpl', '', 0)
+            ('ccb', 'ccb', ''),
+            ('gpl', 'gpl', '')
         ],
         options={'HIDDEN'}
     )
 
     def check(self, context):
+        dirname = os.path.dirname(self.filepath)
+
         self.filename_ext = f'.{self.file_extension}'
+        self.filepath = os.path.join(dirname, bpy.context.scene.vrtxa_palettes[self.palette_index].name + self.filename_ext)
+
+        return True
 
     def execute(self, context):        
         colors = bpy.context.scene.vrtxa_palettes[self.palette_index].palette_colors
@@ -368,7 +372,6 @@ class VRTXA_GROUP_Palette(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(name='name', description='Palette name')
     palette_colors: bpy.props.CollectionProperty(name='palette_colors', type=VRTXA_GROUP_PaletteColor)
     index: bpy.props.IntProperty(name='index', description='Palette index', min=0)
-
 
 
 def register():

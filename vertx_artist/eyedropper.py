@@ -1,4 +1,5 @@
 import mathutils
+import operator
 import os
 import subprocess
 import sys
@@ -43,166 +44,158 @@ def set_clipboard():
     return subprocess.check_call(cmd, shell=True)
 
 
+def vector_math(v1, v2, operation):
+    out = []
+
+    for i in range(len(v1)):
+        out.append(operation(v1[i], v2[i]))
+
+    return tuple(out)
 
 
-def sna_draw_eyedropper_display_function_046A8(mouse_position, color_rgb, color_hex):
-    quads = [[tuple((int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))) + mathutils.Vector((-5.0, -5.0)))))[0]), int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))) + mathutils.Vector((-5.0, -5.0)))))[1]))), tuple((int(int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))) + mathutils.Vector((-5.0, -5.0)))))[0]) + 135), int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))) + mathutils.Vector((-5.0, -5.0)))))[1]))), tuple((int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))) + mathutils.Vector((-5.0, -5.0)))))[0]), int(int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))) + mathutils.Vector((-5.0, -5.0)))))[1]) + 30))), tuple((int(int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))) + mathutils.Vector((-5.0, -5.0)))))[0]) + 135), int(int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))) + mathutils.Vector((-5.0, -5.0)))))[1]) + 30)))]]
-    vertices = []
-    indices = []
-    for i_727C8, quad in enumerate(quads):
-        vertices.extend(quad)
-        indices.extend([(i_727C8 * 4, i_727C8 * 4 + 1, i_727C8 * 4 + 2), (i_727C8 * 4 + 2, i_727C8 * 4 + 1, i_727C8 * 4 + 3)])
+def draw_quad(quad, color):
+    """Draw a quad on screen"""
+
+    indices = ((0, 1, 2), (2, 1, 3))
     shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
-    batch = gpu_extras.batch.batch_for_shader(shader, 'TRIS', {"pos": tuple(vertices)}, indices=tuple(indices))
+    batch = gpu_extras.batch.batch_for_shader(shader, 'TRIS', {"pos": quad}, indices=indices)
     shader.bind()
-    shader.uniform_float("color", (0.18397267162799835, 0.18397267162799835, 0.18397286534309387, 1.0))
+    shader.uniform_float("color", color)
     gpu.state.blend_set('ALPHA')
     batch.draw(shader)
-    quads = [[tuple((int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))))[0]), int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))))[1]))), tuple((int(int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))))[0]) + 20), int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))))[1]))), tuple((int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))))[0]), int(int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))))[1]) + 20))), tuple((int(int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))))[0]) + 20), int(int(tuple(map(lambda v: int(v), tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))))[1]) + 20)))]]
-    vertices = []
-    indices = []
-    for i_83E95, quad in enumerate(quads):
-        vertices.extend(quad)
-        indices.extend([(i_83E95 * 4, i_83E95 * 4 + 1, i_83E95 * 4 + 2), (i_83E95 * 4 + 2, i_83E95 * 4 + 1, i_83E95 * 4 + 3)])
-    shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
-    batch = gpu_extras.batch.batch_for_shader(shader, 'TRIS', {"pos": tuple(vertices)}, indices=tuple(indices))
-    shader.bind()
-    shader.uniform_float("color", eval("(*color_rgb, 1.0)"))
-    gpu.state.blend_set('ALPHA')
-    batch.draw(shader)
+
+
+def draw_eyedropper(mouse_position, color_rgb, color_hex):
+    base_position = vector_math(mouse_position, (30, -1), operator.add)
+
+    # Draw background
+    bg_offset = (-5, -5)
+    height = 30
+    width = 135
+
+    bottom_left = vector_math(base_position, bg_offset, operator.add)
+    bottom_right = vector_math(bottom_left, (width, 0), operator.add)
+    top_left = vector_math(bottom_left, (0, height), operator.add)
+    top_right = vector_math(bottom_left, (width, height), operator.add)
+
+    draw_quad((bottom_left, bottom_right, top_left, top_right), (0.18397267162799835, 0.18397267162799835, 0.18397286534309387, 1.0))
+
+    # Draw color
+    size = 20
+
+    bottom_left = base_position
+    bottom_right = vector_math(bottom_left, (size, 0), operator.add)
+    top_left = vector_math(bottom_left, (0, size), operator.add)
+    top_right = vector_math(bottom_left, (size, size), operator.add)
+
+    draw_quad((bottom_left, bottom_right, top_left, top_right), (*color_rgb, 1.0))
+
+    # Draw hex
+    offset = (30, 3)
     font_id = 0
-    if r'' and os.path.exists(r''):
-        font_id = blf.load(r'')
-    if font_id == -1:
-        print("Couldn't load font!")
-    else:
-        x_AE6C4, y_AE6C4 = tuple(mathutils.Vector(tuple(mathutils.Vector(mouse_position) + mathutils.Vector((30.0, -1.0)))) + mathutils.Vector((30.0, 3.0)))
-        blf.position(font_id, x_AE6C4, y_AE6C4, 0)
-        if bpy.app.version >= (3, 4, 0):
-            blf.size(font_id, 20.0)
-        else:
-            blf.size(font_id, 20.0, 72)
-        clr = (1.0, 1.0, 1.0, 1.0)
-        blf.color(font_id, clr[0], clr[1], clr[2], clr[3])
-        if 0:
-            blf.enable(font_id, blf.WORD_WRAP)
-            blf.word_wrap(font_id, 0)
-        if 0.0:
-            blf.enable(font_id, blf.ROTATION)
-            blf.rotation(font_id, 0.0)
-        blf.enable(font_id, blf.WORD_WRAP)
-        blf.draw(font_id, '#' + color_hex)
-        blf.disable(font_id, blf.ROTATION)
-        blf.disable(font_id, blf.WORD_WRAP)
+
+    x = base_position[0] + offset[0]
+    y = base_position[1] + offset[1]
+
+    blf.position(font_id, x, y, 0)
+    blf.size(font_id, 20.0)
+    blf.color(font_id, 1.0, 1.0, 1.0, 1.0)
+    blf.enable(font_id, blf.WORD_WRAP)
+    blf.draw(font_id, '#' + color_hex)
+    blf.disable(font_id, blf.ROTATION)
+    blf.disable(font_id, blf.WORD_WRAP)
 
 
+handler = None
+eyedropper_running = False
 
-
-
-_FE493_running = False
 class VRTXA_OT_Eyedropper(bpy.types.Operator):
     bl_idname = "vertx_artist.eyedropper"
     bl_label = "VertX Eyedropper"
     bl_description = ""
     bl_options = {"REGISTER", "UNDO"}
     cursor = "EYEDROPPER"
-    _handle = None
-    _event = {}
 
     @classmethod
     def poll(cls, context):
-        if bpy.app.version >= (3, 0, 0) and True:
-            cls.poll_message_set('')
-        if not False or context.area.spaces[0].bl_rna.identifier == 'SpaceNodeEditor':
-            return not False
-        return False
+        return context.area.type == 'VIEW_3D'
 
-    def save_event(self, event):
-        event_options = ["type", "value", "alt", "shift", "ctrl", "oskey", "mouse_region_x", "mouse_region_y", "mouse_x", "mouse_y", "pressure", "tilt"]
-        if bpy.app.version >= (3, 2, 1):
-            event_options += ["type_prev", "value_prev"]
-        for option in event_options: self._event[option] = getattr(event, option)
+    def some_func(self, context, event):
+        global handler
 
-    def draw_callback_px(self, context):
-        event = self._event
-        if event.keys():
-            event = dotdict(event)
-            try:
-                pass
-            except Exception as error:
-                print(error)
+        color_rgb, color_hex = get_color(event=event)
+
+        if event.value == 'RELEASE':
+            if event.type in ['RIGHTMOUSE', 'ESC']:
+                self.execute(context)
+                return {'CANCELLED'}
+
+            self.execute(context)
+            return {"FINISHED"}
+        else:
+            if handler:
+                bpy.types.SpaceView3D.draw_handler_remove(handler, 'WINDOW')
+                handler = None
+                for a in bpy.context.screen.areas:
+                    a.tag_redraw()
+
+            handler = bpy.types.SpaceView3D.draw_handler_add(
+                draw_eyedropper,
+                ((event.mouse_region_x, event.mouse_region_y), color_rgb, color_hex),
+                'WINDOW', 'POST_PIXEL'
+            )
+            for a in bpy.context.screen.areas:
+                a.tag_redraw()
+
+        bpy.context.scene.vrtxa_static_color = color_rgb
 
     def execute(self, context):
-        global _FE493_running
-        _FE493_running = False
+        global eyedropper_running, handler
+
+        eyedropper_running = False
         context.window.cursor_set("DEFAULT")
-        if handler_BCC2E:
-            bpy.types.SpaceView3D.draw_handler_remove(handler_BCC2E[0], 'WINDOW')
-            handler_BCC2E.pop(0)
-            for a in bpy.context.screen.areas: a.tag_redraw()
-        return_D7176 = set_clipboard()
+
+        if handler:
+            bpy.types.SpaceView3D.draw_handler_remove(handler, 'WINDOW')
+            handler = None
+            for a in bpy.context.screen.areas:
+                a.tag_redraw()
+
+        set_clipboard()
+
         for area in context.screen.areas:
             area.tag_redraw()
+
         return {"FINISHED"}
 
     def modal(self, context, event):
-        global _FE493_running
-        if not context.area or not _FE493_running:
+        if not context.area or not eyedropper_running:
             self.execute(context)
             return {'CANCELLED'}
-        self.save_event(event)
+
         context.window.cursor_set('EYEDROPPER')
-        try:
-            return_41CCC = get_color(event=eval("event"))
-            if (event.value == 'RELEASE'):
-                if event.type in ['RIGHTMOUSE', 'ESC']:
-                    self.execute(context)
-                    return {'CANCELLED'}
-                self.execute(context)
-                return {"FINISHED"}
-            else:
-                if handler_BCC2E:
-                    bpy.types.SpaceView3D.draw_handler_remove(handler_BCC2E[0], 'WINDOW')
-                    handler_BCC2E.pop(0)
-                    for a in bpy.context.screen.areas: a.tag_redraw()
-                handler_BCC2E.append(bpy.types.SpaceView3D.draw_handler_add(sna_draw_eyedropper_display_function_046A8, ((event.mouse_region_x, event.mouse_region_y), return_41CCC[0], return_41CCC[1], ), 'WINDOW', 'POST_PIXEL'))
-                for a in bpy.context.screen.areas: a.tag_redraw()
-            bpy.context.scene.vrtxa_static_color = return_41CCC[0]
-        except Exception as error:
-            print(error)
+        self.some_func(context, event)
+
         if event.type in ['RIGHTMOUSE', 'ESC']:
             self.execute(context)
             return {'CANCELLED'}
+
         return {'PASS_THROUGH'}
 
     def invoke(self, context, event):
-        global _FE493_running
-        if _FE493_running:
-            _FE493_running = False
+        global eyedropper_running
+
+        if eyedropper_running:
+            eyedropper_running = False
             return {'FINISHED'}
+
         else:
-            self.save_event(event)
             self.start_pos = (event.mouse_x, event.mouse_y)
             context.window.cursor_set('EYEDROPPER')
-            return_41CCC = get_color(event=eval("event"))
-            if (event.value == 'RELEASE'):
-                if event.type in ['RIGHTMOUSE', 'ESC']:
-                    self.execute(context)
-                    return {'CANCELLED'}
-                self.execute(context)
-                return {"FINISHED"}
-            else:
-                if handler_BCC2E:
-                    bpy.types.SpaceView3D.draw_handler_remove(handler_BCC2E[0], 'WINDOW')
-                    handler_BCC2E.pop(0)
-                    for a in bpy.context.screen.areas: a.tag_redraw()
-                handler_BCC2E.append(bpy.types.SpaceView3D.draw_handler_add(sna_draw_eyedropper_display_function_046A8, ((event.mouse_region_x, event.mouse_region_y), return_41CCC[0], return_41CCC[1], ), 'WINDOW', 'POST_PIXEL'))
-                for a in bpy.context.screen.areas: a.tag_redraw()
-            bpy.context.scene.vrtxa_static_color = return_41CCC[0]
+            self.some_func(context, event)
             context.window_manager.modal_handler_add(self)
-            _FE493_running = True
+            eyedropper_running = True
             return {'RUNNING_MODAL'}
-
 
 
 def register():
