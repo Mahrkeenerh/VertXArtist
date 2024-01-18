@@ -180,6 +180,15 @@ class VRTXA_OT_Eyedropper(bpy.types.Operator):
             self.execute(context)
             return {'CANCELLED'}
 
+        # select object colors with same color
+        if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
+            bpy.ops.vertx_artist.select_by_color(
+                'INVOKE_DEFAULT',
+                selection_tolerance=bpy.context.preferences.addons['vertx_artist'].preferences.selection_tolerance,
+                select_color=bpy.context.scene.vrtxa_static_color,
+                select_color_idx=-1
+            )
+
         return {'PASS_THROUGH'}
 
     def invoke(self, context, event):

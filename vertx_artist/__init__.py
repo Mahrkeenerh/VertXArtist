@@ -32,7 +32,7 @@ bl_info = {
     "author" : "Mahrkeenerh", 
     "description" : "Vertex coloring tool using Color Attributes",
     "blender" : (3, 4, 0),
-    "version" : (3, 0, 0),
+    "version" : (3, 1, 0),
     "location" : "Edit Mode",
     "category" : "Paint" 
 }

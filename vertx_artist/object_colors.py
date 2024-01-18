@@ -261,7 +261,7 @@ class VRTXA_OT_SelectByColor(bpy.types.Operator):
     ignore_value: bpy.props.BoolProperty(name='ignore_value', default=False)
 
     def execute(self, context):
-        # ignore_hsv=(self.sna_ignore_hue, self.sna_ignore_saturation, self.sna_ignore_value)
+        ignore_hsv = (self.ignore_hue, self.ignore_saturation, self.ignore_value)
 
         obj = bpy.context.object
         objs = bpy.context.selected_objects
@@ -273,6 +273,16 @@ class VRTXA_OT_SelectByColor(bpy.types.Operator):
         # Ignore non-mesh objects
         objs = [x for x in objs if x.type == "MESH"]
         obj_name_map = {x.name: x for x in objs}
+
+        if self.select_color_idx == -1:
+            # find index from self.select_color
+            for i, color in enumerate(bpy.context.scene.vrtxa_object_colors):
+                if color.color == self.select_color:
+                    self.select_color_idx = i
+                    break
+
+        if self.select_color_idx == -1:
+            return {"FINISHED"}
 
         # Deselect all
         if bpy.context.mode == "EDIT_MESH":
@@ -286,6 +296,13 @@ class VRTXA_OT_SelectByColor(bpy.types.Operator):
 
             bm.select_flush_mode()
 
+        def compare_ignore_color(ignore, hsv1, hsv2):
+            return (
+                (ignore[0] or hsv1[0] == hsv2[0]) and
+                (ignore[1] or hsv1[1] == hsv2[1]) and
+                (ignore[2] or hsv1[2] == hsv2[2])
+            )
+
         # vert mode or edge mode
         if bpy.context.tool_settings.mesh_select_mode[0] or bpy.context.tool_settings.mesh_select_mode[1]:
             for obj_name in color_corner_lookup[self.select_color_idx]:
@@ -296,6 +313,19 @@ class VRTXA_OT_SelectByColor(bpy.types.Operator):
                 for vert_idx in color_corner_lookup[self.select_color_idx][obj_name]:
                     if len(color_corner_lookup[self.select_color_idx][obj_name][vert_idx]) / len(bm.verts[vert_idx].link_loops) >= (1 - self.selection_tolerance):
                         bm.verts[vert_idx].select = True
+
+                # if ignore_hsv
+                if any(ignore_hsv):
+                    for col_idx, color in enumerate(bpy.context.scene.vrtxa_object_colors):
+                        if col_idx == self.select_color_idx:
+                            continue
+
+                        select_color_hsv = colorsys.rgb_to_hsv(*self.select_color)
+                        color_hsv = colorsys.rgb_to_hsv(*color.color)
+
+                        if compare_ignore_color(ignore_hsv, select_color_hsv, color_hsv):
+                            for vert_idx in color_corner_lookup[col_idx][obj_name]:
+                                bm.verts[vert_idx].select = True
 
                 # edge mode
                 if bpy.context.tool_settings.mesh_select_mode[1]:
@@ -317,8 +347,20 @@ class VRTXA_OT_SelectByColor(bpy.types.Operator):
                     if len(loops_in_face) / len(face.loops) >= (1 - self.selection_tolerance):
                         face.select = True
 
-                bmesh.update_edit_mesh(obj.data)
+                # if ignore_hsv
+                if any(ignore_hsv):
+                    for col_idx, color in enumerate(bpy.context.scene.vrtxa_object_colors):
+                        if col_idx == self.select_color_idx:
+                            continue
 
+                        select_color_hsv = colorsys.rgb_to_hsv(*self.select_color)
+                        color_hsv = colorsys.rgb_to_hsv(*color.color)
+
+                        if compare_ignore_color(ignore_hsv, select_color_hsv, color_hsv):
+                            for face in bm.faces:
+                                face.select = True
+
+                bmesh.update_edit_mesh(obj.data)
 
         return {"FINISHED"}
 

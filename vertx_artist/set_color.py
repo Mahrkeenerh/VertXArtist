@@ -192,7 +192,7 @@ class VRTXA_OT_SetColor(bpy.types.Operator):
             # for change in changes:
             #     corner_color_lookup[change] = color_attribute.index
 
-        if (bpy.context.scene.vrtxa_show_object_colors and bpy.context.mode == 'EDIT_MESH'):
+        if bpy.context.scene.vrtxa_show_object_colors and bpy.context.mode == 'EDIT_MESH':
             bpy.ops.vertx_artist.refresh('INVOKE_DEFAULT')
 
         return {"FINISHED"}
