@@ -1,6 +1,4 @@
-import mathutils
 import operator
-import os
 import subprocess
 import sys
 
@@ -10,9 +8,6 @@ import gpu
 import gpu_extras
 
 
-
-
-handler_BCC2E = []
 last_hex_color = ''
 
 
@@ -65,48 +60,6 @@ def draw_quad(quad, color):
     batch.draw(shader)
 
 
-def draw_eyedropper(mouse_position, color_rgb, color_hex):
-    base_position = vector_math(mouse_position, (30, -1), operator.add)
-
-    # Draw background
-    bg_offset = (-5, -5)
-    height = 30
-    width = 135
-
-    bottom_left = vector_math(base_position, bg_offset, operator.add)
-    bottom_right = vector_math(bottom_left, (width, 0), operator.add)
-    top_left = vector_math(bottom_left, (0, height), operator.add)
-    top_right = vector_math(bottom_left, (width, height), operator.add)
-
-    draw_quad((bottom_left, bottom_right, top_left, top_right), (0.18397267162799835, 0.18397267162799835, 0.18397286534309387, 1.0))
-
-    # Draw color
-    size = 20
-
-    bottom_left = base_position
-    bottom_right = vector_math(bottom_left, (size, 0), operator.add)
-    top_left = vector_math(bottom_left, (0, size), operator.add)
-    top_right = vector_math(bottom_left, (size, size), operator.add)
-
-    draw_quad((bottom_left, bottom_right, top_left, top_right), (*color_rgb, 1.0))
-
-    # Draw hex
-    offset = (30, 3)
-    font_id = 0
-
-    x = base_position[0] + offset[0]
-    y = base_position[1] + offset[1]
-
-    blf.position(font_id, x, y, 0)
-    blf.size(font_id, 20.0)
-    blf.color(font_id, 1.0, 1.0, 1.0, 1.0)
-    blf.enable(font_id, blf.WORD_WRAP)
-    blf.draw(font_id, '#' + color_hex)
-    blf.disable(font_id, blf.ROTATION)
-    blf.disable(font_id, blf.WORD_WRAP)
-
-
-handler = None
 eyedropper_running = False
 
 class VRTXA_OT_Eyedropper(bpy.types.Operator):
@@ -116,14 +69,82 @@ class VRTXA_OT_Eyedropper(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     cursor = "EYEDROPPER"
 
+    handle = None
+
+    mouse_position = ()
+    color_rgb = (1.0, 1.0, 1.0)
+    color_hex = 'FFFFFF'
+
     @classmethod
     def poll(cls, context):
         return context.area.type == 'VIEW_3D'
 
-    def some_func(self, context, event):
-        global handler
+    def draw_eyedropper(self):
+        base_position = vector_math(self.mouse_position, (30, -1), operator.add)
 
-        color_rgb, color_hex = get_color(event=event)
+        # Draw background
+        bg_offset = (-5, -5)
+        height = 30
+        width = 135
+
+        bottom_left = vector_math(base_position, bg_offset, operator.add)
+        bottom_right = vector_math(bottom_left, (width, 0), operator.add)
+        top_left = vector_math(bottom_left, (0, height), operator.add)
+        top_right = vector_math(bottom_left, (width, height), operator.add)
+
+        draw_quad((bottom_left, bottom_right, top_left, top_right), (0.18397267162799835, 0.18397267162799835, 0.18397286534309387, 1.0))
+
+        # Draw color
+        size = 20
+
+        bottom_left = base_position
+        bottom_right = vector_math(bottom_left, (size, 0), operator.add)
+        top_left = vector_math(bottom_left, (0, size), operator.add)
+        top_right = vector_math(bottom_left, (size, size), operator.add)
+
+        draw_quad((bottom_left, bottom_right, top_left, top_right), (*self.color_rgb, 1.0))
+
+        # Draw hex
+        offset = (30, 3)
+        font_id = 0
+
+        x = base_position[0] + offset[0]
+        y = base_position[1] + offset[1]
+
+        blf.position(font_id, x, y, 0)
+        blf.size(font_id, 20.0)
+        blf.color(font_id, 1.0, 1.0, 1.0, 1.0)
+        blf.enable(font_id, blf.WORD_WRAP)
+        blf.draw(font_id, '#' + self.color_hex)
+        blf.disable(font_id, blf.ROTATION)
+        blf.disable(font_id, blf.WORD_WRAP)
+
+    def execute(self, context):
+        global eyedropper_running
+
+        eyedropper_running = False
+        context.window.cursor_set("DEFAULT")
+
+        bpy.types.SpaceView3D.draw_handler_remove(self.handle, 'WINDOW')
+        self.handle = None
+        for a in bpy.context.screen.areas:
+            a.tag_redraw()
+
+        set_clipboard()
+
+        return {"FINISHED"}
+
+    def modal(self, context, event):
+        self.mouse_position = (event.mouse_region_x, event.mouse_region_y)
+
+        if not context.area or not eyedropper_running:
+            self.execute(context)
+            return {'CANCELLED'}
+
+        context.area.tag_redraw()
+        context.window.cursor_set('EYEDROPPER')
+        
+        self.color_rgb, self.color_hex = get_color(event=event)
 
         if event.value == 'RELEASE':
             if event.type in ['RIGHTMOUSE', 'ESC']:
@@ -132,53 +153,8 @@ class VRTXA_OT_Eyedropper(bpy.types.Operator):
 
             self.execute(context)
             return {"FINISHED"}
-        else:
-            if handler:
-                bpy.types.SpaceView3D.draw_handler_remove(handler, 'WINDOW')
-                handler = None
-                for a in bpy.context.screen.areas:
-                    a.tag_redraw()
 
-            handler = bpy.types.SpaceView3D.draw_handler_add(
-                draw_eyedropper,
-                ((event.mouse_region_x, event.mouse_region_y), color_rgb, color_hex),
-                'WINDOW', 'POST_PIXEL'
-            )
-            for a in bpy.context.screen.areas:
-                a.tag_redraw()
-
-        bpy.context.scene.vrtxa_static_color = color_rgb
-
-    def execute(self, context):
-        global eyedropper_running, handler
-
-        eyedropper_running = False
-        context.window.cursor_set("DEFAULT")
-
-        if handler:
-            bpy.types.SpaceView3D.draw_handler_remove(handler, 'WINDOW')
-            handler = None
-            for a in bpy.context.screen.areas:
-                a.tag_redraw()
-
-        set_clipboard()
-
-        for area in context.screen.areas:
-            area.tag_redraw()
-
-        return {"FINISHED"}
-
-    def modal(self, context, event):
-        if not context.area or not eyedropper_running:
-            self.execute(context)
-            return {'CANCELLED'}
-
-        context.window.cursor_set('EYEDROPPER')
-        self.some_func(context, event)
-
-        if event.type in ['RIGHTMOUSE', 'ESC']:
-            self.execute(context)
-            return {'CANCELLED'}
+        bpy.context.scene.vrtxa_static_color = self.color_rgb
 
         # select object colors with same color
         if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
@@ -186,7 +162,8 @@ class VRTXA_OT_Eyedropper(bpy.types.Operator):
                 'INVOKE_DEFAULT',
                 selection_tolerance=bpy.context.preferences.addons['vertx_artist'].preferences.selection_tolerance,
                 select_color=bpy.context.scene.vrtxa_static_color,
-                select_color_idx=-1
+                select_color_idx=-1,
+                ignore_hue=False, ignore_saturation=False, ignore_value=False,
             )
 
         return {'PASS_THROUGH'}
@@ -201,7 +178,10 @@ class VRTXA_OT_Eyedropper(bpy.types.Operator):
         else:
             self.start_pos = (event.mouse_x, event.mouse_y)
             context.window.cursor_set('EYEDROPPER')
-            self.some_func(context, event)
+            self.handle = bpy.types.SpaceView3D.draw_handler_add(
+                self.draw_eyedropper, (),
+                'WINDOW', 'POST_PIXEL'
+            )
             context.window_manager.modal_handler_add(self)
             eyedropper_running = True
             return {'RUNNING_MODAL'}
