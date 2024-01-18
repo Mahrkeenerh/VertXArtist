@@ -22,13 +22,13 @@ ignore_color_change = False
 }
 """
 color_corner_lookup = {}
+idx_mapping = []
 """
 {
     ("obj", vert_idx, corner_idx): col_idx
 }
 """
-corner_color_lookup = {}
-
+# corner_color_lookup = {}
 
 
 def object_color_update(self, context):
@@ -117,11 +117,13 @@ class VRTXA_OT_Refresh(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
-        global color_corner_lookup, corner_color_lookup
+        # global color_corner_lookup, corner_color_lookup
+        global color_corner_lookup
         global ignore_color_change
+        global idx_mapping
 
         color_corner_lookup = {}
-        corner_color_lookup = {}
+        # corner_color_lookup = {}
 
         obj = bpy.context.object
         objs = bpy.context.selected_objects
@@ -182,55 +184,29 @@ class VRTXA_OT_Refresh(bpy.types.Operator):
                         vert = corner.vert
                         get_color(get_corner_idx(), int(face.select))
 
-        # TODO FIX CORNER LOOKUP
-        # FIX SORTING
-
-        # indices = [i for i in range(len(colors))]
-        # sorter = zip(colors.items(), indices)
-        # sorter = sorted(sorter, key=lambda x: colorsys.rgb_to_hsv(*x[0][0]))
-
-        # colors = {x[0][0]: x[0][1] for x in sorter}
-        # # colors = {x[0][0]: [x[1], x[0][1][1]] for x in sorter}
-        # indices = [x[1] for x in sorter]
-
-        # sorted_colors = sorted(colors.items(), key=lambda x: colorsys.rgb_to_hsv(*x[0]))
-
-        out_colors = [x for x in colors.keys()]
-        # indices = [i for i in range(len(out_colors))]
-
-        # sorter = zip(out_colors, indices)
-        # sorter = sorted(sorter, key=lambda x: colorsys.rgb_to_hsv(*x[0]))
-
-        # out_colors = [x[0] for x in sorter]
-        # indices = [x[1] for x in sorter]
-        # out_colors.sort(key=lambda rgb: colorsys.rgb_to_hsv(*rgb))
-        # sorted_colors = sorter.sort(out_colors)
-        # active_color_index = 0
-        # active_color_index = max(colors.values(), key=lambda x: x[1])[0] if len(colors) > 0 else None
-        # out_colors = [x for x in colors.keys()]
-
-        # return active_color_index, out_colors
-
-        active_color_index = max(colors.values(), key=lambda x: x[1])[0] if len(colors) > 0 else None
+        colors = sorted(colors.items(), key=lambda x: colorsys.rgb_to_hsv(*x[0]))
+        idx_mapping = [x[1][0] for x in colors]
+        active_color_index = max(range(len(colors)), key=lambda x: colors[x][1][1]) if len(colors) > 0 else None
 
         if active_color_index is None:
             return {"FINISHED"}
 
         ignore_color_change = True
 
-        to_remove_count = len(bpy.context.scene.vrtxa_object_colors) - len(out_colors)
-        if to_remove_count > len(out_colors):
+        to_remove_count = len(bpy.context.scene.vrtxa_object_colors) - len(colors)
+        if to_remove_count > len(colors):
             bpy.context.scene.vrtxa_object_colors.clear()
 
-        while len(bpy.context.scene.vrtxa_object_colors) > len(out_colors):
+        while len(bpy.context.scene.vrtxa_object_colors) > len(colors):
             bpy.context.scene.vrtxa_object_colors.remove(len(bpy.context.scene.vrtxa_object_colors) - 1)
 
-        while len(bpy.context.scene.vrtxa_object_colors) < len(out_colors):
+        while len(bpy.context.scene.vrtxa_object_colors) < len(colors):
             new_color = bpy.context.scene.vrtxa_object_colors.add()
             new_color.index = len(bpy.context.scene.vrtxa_object_colors) - 1
 
         bpy.context.scene.vrtxa_active_color_index = active_color_index
-        for i, color in enumerate(out_colors):
+        for i, color_comp in enumerate(colors):
+            color = color_comp[0]
             bpy.context.scene.vrtxa_object_colors[i].color = color
 
         ignore_color_change = False
@@ -283,6 +259,8 @@ class VRTXA_OT_SelectByColor(bpy.types.Operator):
 
         if self.select_color_idx == -1:
             return {"FINISHED"}
+
+        self.select_color_idx = idx_mapping[self.select_color_idx]
 
         # Deselect all
         if bpy.context.mode == "EDIT_MESH":
