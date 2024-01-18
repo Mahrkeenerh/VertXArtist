@@ -54,9 +54,9 @@ class VRTXA_AddonPreferences(bpy.types.AddonPreferences):
 
     def draw(self, context):
         layout = self.layout 
-        # layout.prop(find_user_keyconfig('1C102'), 'type', text='Quick Access Menu', full_event=True)
-        # layout.prop(find_user_keyconfig('38BF8'), 'type', text='Color Eyedropper', full_event=True)
-        layout.prop(keymaps['set_color'], 'type', text='Set Color', full_event=True)
+        layout.prop(keymaps['set_color'][1], 'type', text='Set Color', full_event=True)
+        layout.prop(keymaps['pie_menu'][1], 'type', text='Color Eyedropper', full_event=True)
+        layout.prop(keymaps['eyedropper'][1], 'type', text='Quick Access Menu', full_event=True)
 
 
 def create_keymaps():
@@ -70,12 +70,14 @@ def create_keymaps():
     )
     keymaps['eyedropper'] = (km, kmi)
 
-    # km = kc.keymaps.new(name='3D View', space_type='VIEW_3D')
-    # kmi = km.keymap_items.new(
-    #     'wm.call_menu_pie', 'V', 'PRESS',
-    #     ctrl=False, alt=False, shift=False,
-    #     repeat=False
-    # )
+    km = kc.keymaps.new(name='3D View', space_type='VIEW_3D')
+    kmi = km.keymap_items.new(
+        'wm.call_menu_pie', 'V', 'PRESS',
+        ctrl=False, alt=False, shift=False,
+        repeat=False
+    )
+    kmi.properties.name = 'VIEW3D_MT_vertx_artist_pie'
+    keymaps['pie_menu'] = (km, kmi)
 
     km = kc.keymaps.new(name='3D View', space_type='VIEW_3D')
     kmi = km.keymap_items.new(

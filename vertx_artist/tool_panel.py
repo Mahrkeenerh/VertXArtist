@@ -3,6 +3,7 @@ import os
 import bpy
 
 from .tools import col_attr_exists
+from .layers import display_alpha_extractbake
 
 
 _icons = None
@@ -234,6 +235,25 @@ def prepend_object_tool_panel(self, context):
         self.layout.separator(factor=0.5)
 
 
+class VRTXA_MT_Pie(bpy.types.Menu):
+    bl_idname = "VIEW3D_MT_vertx_artist_pie"
+    bl_label = "VertXArtist: Quick Access"
+
+    @classmethod
+    def poll(cls, context):
+        return bpy.context.mode == 'EDIT_MESH' or bpy.context.mode == 'PAINT_VERTEX'
+
+    def draw(self, context):
+        layout = self.layout.menu_pie()
+
+        display_alpha_extractbake(layout, 'Show Alpha', 'Hide Alpha')
+        op = layout.operator('vertx_artist.set_color', text='Set Color', icon_value=36)
+        op.use_static = True
+
+        layout.operator('vertx_artist.checkpoint', icon_value=_icons['white_flag.png'].icon_id)
+        layout.operator('vertx_artist.refresh', text='Refresh', icon_value=692)
+
+
 def register():
     global _icons
     _icons = bpy.utils.previews.new()
@@ -244,6 +264,8 @@ def register():
     bpy.types.VIEW3D_PT_tools_active.prepend(prepend_tool_panel)
     bpy.types.VIEW3D_PT_tools_active.prepend(prepend_object_tool_panel)
 
+    bpy.utils.register_class(VRTXA_MT_Pie)
+
 
 def unregister():
     bpy.utils.previews.remove(_icons)
@@ -252,3 +274,5 @@ def unregister():
     bpy.utils.unregister_class(VRTXA_PT_PreferencesPopout)
     bpy.types.VIEW3D_PT_tools_active.remove(prepend_tool_panel)
     bpy.types.VIEW3D_PT_tools_active.remove(prepend_object_tool_panel)
+
+    bpy.utils.unregister_class(VRTXA_MT_Pie)

@@ -96,7 +96,7 @@ class VRTXA_OT_SetColor(bpy.types.Operator):
             return {"FINISHED"}
 
         if self.use_static:
-            color = bpy.scene.vrtxa_static_color
+            color = bpy.context.scene.vrtxa_static_color
         else:
             color = self.color
 
