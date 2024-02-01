@@ -4,7 +4,7 @@ import bpy
 import bmesh
 from bpy.app.handlers import persistent
 
-from .set_color import gamma_correct, inverse_gamma
+from .object_colors import gamma_correct, inverse_gamma
 from .tools import on_name_update, col_attr_exists
 from .transformations import refresh_default_material
 
@@ -448,118 +448,6 @@ def display_alpha_extractbake(layout, extract_name, bake_name):
         op.layer_name = ''
 
 
-class VRTXA_OT_ApplyAlphaGradient(bpy.types.Operator):
-    bl_idname = "vertx_artist.apply_alpha_gradient"
-    bl_label = "Apply Alpha Gradient"
-    bl_description = "Apply alpha gradient to correct channel"
-    bl_options = {"REGISTER", "UNDO"}
-    neg_axis: bpy.props.FloatProperty(name='neg_axis', default=0.0, min=0.0, max=1.0)
-    pos_axis: bpy.props.FloatProperty(name='pos_axis', default=1.0, min=0.0, max=1.0)
-
-    
-    def calculate_alpha(self, min_z, max_z, z):
-        """Calculate alpha value for vertex."""
-
-        div = max_z - min_z if max_z - min_z != 0 else 1
-        alpha = (z - min_z) / div * (self.pos_axis - self.neg_axis) + self.neg_axis
-        return alpha
-
-    @classmethod
-    def poll(cls, context):
-        active_obj = bpy.context.object
-        objects = bpy.context.selected_objects
-        return active_obj is not None and active_obj.type == "MESH" or objects
-
-    def execute(self, context):
-        active_obj = bpy.context.object
-        objects = bpy.context.selected_objects
-        if not objects:
-            objects = [active_obj]
-
-        for obj in objects:
-            if obj.type != "MESH":
-                continue
-
-            if obj.data.color_attributes.active_color is None:
-                bpy.context.view_layer.objects.active = obj
-                bpy.ops.geometry.color_attribute_add(name='Attribute', domain='CORNER', data_type='BYTE_COLOR')
-
-        bpy.context.view_layer.objects.active = active_obj
-
-        if bpy.context.mode == "OBJECT":
-            obj_verts_coords = [obj.matrix_world @ v.co for obj in objects for v in obj.data.vertices]
-        elif bpy.context.mode == "EDIT_MESH":
-            obj_verts_coords = []
-            for obj in objects:
-                if obj.type != "MESH":
-                    continue
-
-                bm = bmesh.from_edit_mesh(obj.data)
-                obj_verts_coords.extend([obj.matrix_world @ v.co for v in bm.verts if v.select])
-
-        if len(obj_verts_coords) == 0:
-            return {"FINISHED"}
-
-        min_z = min(obj_verts_coords, key=lambda x: x[2])[2]
-        max_z = max(obj_verts_coords, key=lambda x: x[2])[2]
-
-        if bpy.context.mode == "EDIT_MESH":
-            rolling_i = 0
-            for i, obj in enumerate(objects):
-                if obj.type != "MESH":
-                    continue
-
-                bm = bmesh.from_edit_mesh(obj.data)
-                active_name = obj.data.color_attributes.active_color.name
-                channels = obj.vrtxa_layers[active_name].channels
-                color_attribute = bm.loops.layers.color.get(active_name)
-
-                for vert in bm.verts:
-                    if not vert.select:
-                        continue
-
-                    alpha = self.calculate_alpha(min_z, max_z, obj_verts_coords[rolling_i][2])
-                    rolling_i += 1
-
-                    for corner in vert.link_loops:
-                        if channels == 'A':
-                            corner[color_attribute][0] = alpha
-                            corner[color_attribute][1] = alpha
-                            corner[color_attribute][2] = alpha
-                        else:
-                            corner[color_attribute][3] = alpha
-
-                bmesh.update_edit_mesh(obj.data)
-
-        # Object mode
-        else:
-            rolling_i = 0
-            for obj in objects:
-                if obj.type != "MESH":
-                    continue
-
-                channels = obj.vrtxa_layers[obj.data.color_attributes.active_color.name].channels
-
-                vert_corners = [[] for _ in range(len(obj.data.vertices))]
-                for corner in obj.data.loops:
-                    vert_corners[corner.vertex_index].append(corner.index)
-
-                for i in range(len(obj.data.vertices)):
-                    alpha = self.calculate_alpha(min_z, max_z, obj_verts_coords[rolling_i + i][2])
-
-                    for corner in vert_corners[i]:
-                        if channels == 'A':
-                            obj.data.color_attributes.active_color.data[corner].color[0] = alpha
-                            obj.data.color_attributes.active_color.data[corner].color[1] = alpha
-                            obj.data.color_attributes.active_color.data[corner].color[2] = alpha
-                        else:
-                            obj.data.color_attributes.active_color.data[corner].color[3] = alpha
-
-                rolling_i += len(obj.data.vertices)
-
-        return {"FINISHED"}
-
-
 def display_alpha_panel(self, context):
     if not (bpy.context.mode == 'OBJECT' or bpy.context.mode == 'EDIT_MESH'):
         return
@@ -633,6 +521,8 @@ class VRTXA_OT_ExtractAlpha(bpy.types.Operator):
                 )
 
         bpy.context.view_layer.objects.active = active_obj
+        bpy.ops.vertx_artist.refresh('INVOKE_DEFAULT')
+
         return {"FINISHED"}
 
 
@@ -657,6 +547,8 @@ class VRTXA_OT_Bake_Alpha(bpy.types.Operator):
                 bake_alpha(self.layer_name)
 
         bpy.context.view_layer.objects.active = active_obj
+        bpy.ops.vertx_artist.refresh('INVOKE_DEFAULT')
+
         return {"FINISHED"}
 
     def invoke(self, context, event):
@@ -704,7 +596,6 @@ def register():
     bpy.utils.register_class(VRTXA_OT_ToggleRenderColorLayer)
     bpy.utils.register_class(VRTXA_OT_AddLayer)
     bpy.utils.register_class(VRTXA_OT_SynchronizeLayers)
-    bpy.utils.register_class(VRTXA_OT_ApplyAlphaGradient)
     bpy.utils.register_class(VRTXA_OT_SelectRGBALayer)
     bpy.utils.register_class(VRTXA_OT_ExtractAlpha)
     bpy.utils.register_class(VRTXA_OT_Bake_Alpha)
@@ -727,7 +618,6 @@ def unregister():
     bpy.utils.unregister_class(VRTXA_OT_ToggleRenderColorLayer)
     bpy.utils.unregister_class(VRTXA_OT_AddLayer)
     bpy.utils.unregister_class(VRTXA_OT_SynchronizeLayers)
-    bpy.utils.unregister_class(VRTXA_OT_ApplyAlphaGradient)
     bpy.utils.unregister_class(VRTXA_OT_SelectRGBALayer)
     bpy.utils.unregister_class(VRTXA_OT_ExtractAlpha)
     bpy.utils.unregister_class(VRTXA_OT_Bake_Alpha)

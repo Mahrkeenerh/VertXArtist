@@ -21,7 +21,6 @@ from . import (
     object_colors,
     palettes,
     preferences,
-    set_color,
     tool_panel,
     transformations
 )
@@ -32,7 +31,7 @@ bl_info = {
     "author" : "Mahrkeenerh", 
     "description" : "Vertex coloring tool using Color Attributes",
     "blender" : (3, 4, 0),
-    "version" : (3, 1, 0),
+    "version" : (3, 2, 0),
     "location" : "Edit Mode",
     "category" : "Paint" 
 }
@@ -44,7 +43,6 @@ def register():
     object_colors.register()
     palettes.register()
     preferences.register()
-    set_color.register()
     tool_panel.register()
     transformations.register()
 
@@ -55,6 +53,5 @@ def unregister():
     object_colors.unregister()
     palettes.unregister()
     preferences.unregister()
-    set_color.unregister()
     tool_panel.unregister()
     transformations.unregister()
