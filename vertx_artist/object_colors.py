@@ -59,18 +59,21 @@ def set_restricted_color(color: tuple, new_color: tuple, channels: str):
             color[i] = hsv_color[2]
 
 
+def round_color(color, precision=5):
+    return tuple(round(x, precision) for x in color)
+
+
 ignore_color_change = False
 
-# possibly save color RGB, and then only update specific items
 """
 {
     col_idx: [
         col_rgb, {
         "obj": {
-            vert_idx: [(
+            vert_idx: [
                 corner_list_idx,
-                corner_idx
-            ), ...]
+                ...
+            ]
         }
     }]
 }
@@ -80,7 +83,7 @@ lookup_to_obj_col_idx_mapping = {}
 obj_to_lookup_col_idx_mapping = []
 """
 {
-    ("obj", vert_idx, corner_idx): col_idx
+    ("obj", vert_idx): col_idx
 }
 """
 corner_color_lookup = {}
@@ -117,6 +120,62 @@ def sort_update_object_colors(colors, active_color_index):
         bpy.context.scene.vrtxa_object_colors[i].color = color
 
     ignore_color_change = False
+
+
+def update_lookups(new_color, changes):
+    global color_corner_lookup, corner_color_lookup
+
+    if new_color not in [x[0] for x in color_corner_lookup.values()]:
+        new_color_idx = max(color_corner_lookup.keys()) + 1 if len(color_corner_lookup) > 0 else 0
+        color_corner_lookup.setdefault(
+            new_color_idx, [new_color, {}]
+        )
+    else:
+        new_color_idx = [x for x in color_corner_lookup.items() if x[1][0] == new_color][0][0]
+
+    # Add new entry to color corner lookup
+    for change in changes:
+        obj_name = change[0]
+        vert_idx = change[1]
+        corner_list_idx = change[2]
+
+        color_corner_lookup[new_color_idx][1].setdefault(
+            obj_name, {}
+        ).setdefault(
+            vert_idx, []
+        ).append(
+            corner_list_idx
+        )
+
+    removed_col_idxs = []
+
+    # Remove old and empty entries
+    for change in changes:
+        obj_name = change[0]
+        vert_idx = change[1]
+        corner_list_idx = change[2]
+
+        col_idx = corner_color_lookup[(obj_name, vert_idx)]
+        color_corner_lookup[col_idx][1][obj_name][vert_idx].remove(corner_list_idx)
+
+        if len(color_corner_lookup[col_idx][1][obj_name][vert_idx]) == 0:
+            del color_corner_lookup[col_idx][1][obj_name][vert_idx]
+        
+        if len(color_corner_lookup[col_idx][1][obj_name]) == 0:
+            del color_corner_lookup[col_idx][1][obj_name]
+
+        if len(color_corner_lookup[col_idx][1]) == 0:
+            removed_col_idxs.append(col_idx)
+            del color_corner_lookup[col_idx]
+
+    # Update corner color lookup
+    for change in changes:
+        obj_name = change[0]
+        vert_idx = change[1]
+
+        corner_color_lookup[(obj_name, vert_idx)] = new_color_idx
+
+    return new_color_idx
 
 
 class VRTXA_OT_SetColor(bpy.types.Operator):
@@ -166,9 +225,10 @@ class VRTXA_OT_SetColor(bpy.types.Operator):
 
         channels = obj.vrtxa_layers[obj.data.color_attributes.active_color_index].channels
 
+        changes = []
         new_color_idx = None
+        new_color = None
 
-        # TODO
         # VERTEX PAINT MODE
         if bpy.context.mode == "PAINT_VERTEX":
             try:
@@ -194,6 +254,8 @@ class VRTXA_OT_SetColor(bpy.types.Operator):
                         channels
                     )
 
+                    changes.append((obj.name, l.vertex_index, i))
+
             # polygons
             if poly_mode:
                 for polygon in obj.data.polygons:
@@ -205,7 +267,9 @@ class VRTXA_OT_SetColor(bpy.types.Operator):
                                 channels
                             )
 
-            return {"FINISHED"}
+                            changes.append((obj.name, obj.data.loops[i].vertex_index, i))
+            
+            new_color = round_color(gamma_correct_color(tuple(color_attribute.data[changes[-1][2]].color)[:-1]))
 
         # EDIT MODE
         if bpy.context.mode == "EDIT_MESH":
@@ -213,12 +277,8 @@ class VRTXA_OT_SetColor(bpy.types.Operator):
             if not objs:
                 objs = [obj]
 
-            new_color = None
-            changes = []
-
             # Ignore non-mesh objects
             objs = [x for x in objs if x.type == "MESH"]
-            # obj_name_map = {x.name: x for x in objs}
 
             for obj in objs:
                 mode = list(bpy.context.tool_settings.mesh_select_mode)
@@ -236,9 +296,9 @@ class VRTXA_OT_SetColor(bpy.types.Operator):
                                     channels
                                 )
 
-                                changes.append((obj.name, vert.index, corner_idx, corner.index))
+                                changes.append((obj.name, vert.index, corner.index))
 
-                # # faces
+                # faces
                 if mode[2]:
                     for face in bm.faces:
                         if face.select:
@@ -249,51 +309,25 @@ class VRTXA_OT_SetColor(bpy.types.Operator):
                                     channels
                                 )
 
-                                corner_idx = get_face_corner_idx(corner)
-                                changes.append((obj.name, corner.vert.index, corner_idx, corner.index))
+                                changes.append((obj.name, corner.vert.index, corner.index))
 
                 if new_color is None:
-                    new_color = tuple(bm.verts[changes[-1][1]].link_loops[changes[-1][2]][active_layer])[:-1]
+                    # new_color = tuple(bm.verts[changes[-1][1]].link_loops[changes[-1][2]][active_layer])[:-1]
+                    if mode[0] or mode[1]:
+                        for vert in bm.verts:
+                            if vert.select:
+                                new_color = round_color(tuple(vert.link_loops[0][active_layer])[:-1])
+                                break
+
+                    if mode[2]:
+                        for face in bm.faces:
+                            if face.select:
+                                new_color = round_color(tuple(face.loops[0][active_layer])[:-1])
+                                break
+
                 bmesh.update_edit_mesh(obj.data)
 
-            if new_color not in [x[0] for x in color_corner_lookup.values()]:
-                new_color_idx = len(color_corner_lookup)
-                color_corner_lookup.setdefault(
-                    new_color_idx, [new_color, {}]
-                )
-            else:
-                new_color_idx = [x for x in color_corner_lookup.items() if x[1][0] == new_color][0][0]
-
-            # Add new entry to color corner lookup
-            for change in changes:
-                color_corner_lookup[new_color_idx][1].setdefault(
-                    change[0], {}
-                ).setdefault(
-                    change[1], []
-                ).append(
-                    (change[2], change[3])
-                )
-
-            removed_col_idxs = []
-
-            # Remove old and empty entries
-            for change in changes:
-                col_idx = corner_color_lookup[(change[0], change[1], change[3])]
-                color_corner_lookup[col_idx][1][change[0]][change[1]].remove((change[2], change[3]))
-
-                if len(color_corner_lookup[col_idx][1][change[0]][change[1]]) == 0:
-                    del color_corner_lookup[col_idx][1][change[0]][change[1]]
-                
-                if len(color_corner_lookup[col_idx][1][change[0]]) == 0:
-                    del color_corner_lookup[col_idx][1][change[0]]
-
-                if len(color_corner_lookup[col_idx][1]) == 0:
-                    removed_col_idxs.append(col_idx)
-                    del color_corner_lookup[col_idx]
-
-            # Update corner color lookup
-            for change in changes:
-                corner_color_lookup[(change[0], change[1], change[3])] = new_color_idx
+        new_color_idx = update_lookups(new_color, changes)
 
         """
         colors = {
@@ -332,7 +366,6 @@ class VRTXA_OT_ApplyAlphaGradient(bpy.types.Operator):
         objects = bpy.context.selected_objects
         return active_obj is not None and active_obj.type == "MESH" or objects
 
-    # TODO
     def execute(self, context):
         active_obj = bpy.context.object
         objects = bpy.context.selected_objects
@@ -420,7 +453,8 @@ class VRTXA_OT_ApplyAlphaGradient(bpy.types.Operator):
 
                 rolling_i += len(obj.data.vertices)
 
-        # bpy.ops.vertx_artist.refresh('INVOKE_DEFAULT')
+        # POSSIBLE OPTIMIZATION WITH LOOKUPS
+        bpy.ops.vertx_artist.refresh('INVOKE_DEFAULT')
 
         return {"FINISHED"}
 
@@ -431,7 +465,6 @@ class VRTXA_GROUP_ObjectColor(bpy.types.PropertyGroup):
         """Update color of everything with same color."""
 
         if not ignore_color_change:
-            # color_idx = self.index
             color_idx = obj_to_lookup_col_idx_mapping[self.index]
             new_color = self.color
 
@@ -456,7 +489,7 @@ class VRTXA_GROUP_ObjectColor(bpy.types.PropertyGroup):
                 active_layer = bm.loops.layers.color.get(color_attribute.name)
 
                 for vert_idx in color_corner_lookup[color_idx][1][obj.name]:
-                    for corner_list_idx, corner_idx in color_corner_lookup[color_idx][1][obj.name][vert_idx]:
+                    for corner_list_idx in color_corner_lookup[color_idx][1][obj.name][vert_idx]:
                         set_restricted_color(
                             bm.verts[vert_idx].link_loops[corner_list_idx][active_layer],
                             new_color,
@@ -545,7 +578,7 @@ class VRTXA_OT_Refresh(bpy.types.Operator):
             active_layer = bm.loops.layers.color.get(color_attribute.name)
 
             def get_color(corner_list_idx, c):
-                color = tuple(corner[active_layer])[:-1]
+                color = round_color(tuple(corner[active_layer])[:-1])
                 colors.setdefault(color, [len(colors), 0])[1] += c
 
                 color_corner_lookup.setdefault(
@@ -555,9 +588,9 @@ class VRTXA_OT_Refresh(bpy.types.Operator):
                 ).setdefault(
                     vert.index, []
                 ).append(
-                    (corner_list_idx, corner.index)
+                    corner.index
                 )
-                corner_color_lookup[(obj.name, vert.index, corner.index)] = colors[color][0]
+                corner_color_lookup[(obj.name, vert.index)] = colors[color][0]
 
             # vert or edge mode
             if bpy.context.tool_settings.mesh_select_mode[0] or bpy.context.tool_settings.mesh_select_mode[1]:
@@ -576,7 +609,7 @@ class VRTXA_OT_Refresh(bpy.types.Operator):
         obj_to_lookup_col_idx_mapping = [x[1][0] for x in colors]
         active_color_index = max(range(len(colors)), key=lambda x: colors[x][1][1]) if len(colors) > 0 else None
 
-        sort_update_object_colors(colors, active_color_index)
+        sort_update_object_colors(colors, obj_to_lookup_col_idx_mapping[active_color_index])
 
         return {"FINISHED"}
 
@@ -627,19 +660,21 @@ class VRTXA_OT_SelectByColor(bpy.types.Operator):
         if self.select_color_idx == -1:
             return {"FINISHED"}
 
-        self.select_color_idx = lookup_to_obj_col_idx_mapping[self.select_color_idx]
+        self.select_color_idx = obj_to_lookup_col_idx_mapping[self.select_color_idx]
 
         # Deselect all
         if bpy.context.mode == "EDIT_MESH":
-            bm = bmesh.from_edit_mesh(obj.data)
-            for vert in bm.verts:
-                vert.select = False
-            for face in bm.faces:
-                face.select = False
-            for edge in bm.edges:
-                edge.select = False
+            for obj in objs:
+                bm = bmesh.from_edit_mesh(obj.data)
+                for vert in bm.verts:
+                    vert.select = False
+                for face in bm.faces:
+                    face.select = False
+                for edge in bm.edges:
+                    edge.select = False
 
-            bm.select_flush_mode()
+                bm.select_flush_mode()
+                bmesh.update_edit_mesh(obj.data)
 
         def compare_ignore_color(ignore, hsv1, hsv2):
             return (
@@ -706,6 +741,8 @@ class VRTXA_OT_SelectByColor(bpy.types.Operator):
                                 face.select = True
 
                 bmesh.update_edit_mesh(obj.data)
+
+        bpy.context.scene.vrtxa_active_color_index = lookup_to_obj_col_idx_mapping[self.select_color_idx]
 
         return {"FINISHED"}
 
