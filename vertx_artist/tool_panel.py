@@ -1,6 +1,7 @@
 import os
 
 import bpy
+import bpy.utils.previews
 
 from .tools import col_attr_exists
 from .layers import display_alpha_extractbake
