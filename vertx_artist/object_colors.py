@@ -490,12 +490,13 @@ class VRTXA_GROUP_ObjectColor(bpy.types.PropertyGroup):
 
                 for vert_idx in color_corner_lookup[color_idx][1][obj.name]:
                     for corner_list_idx in color_corner_lookup[color_idx][1][obj.name][vert_idx]:
+                        bm_loop = [loop for loop in bm.verts[vert_idx].link_loops if loop.index == corner_list_idx][0]
                         set_restricted_color(
-                            bm.verts[vert_idx].link_loops[corner_list_idx][active_layer],
+                            bm_loop[active_layer],
                             new_color,
                             bpy.context.view_layer.objects.active.vrtxa_layers[bpy.context.object.data.color_attributes.active_color_index].channels
                         )
-                        color_corner_lookup[color_idx][0] = bm.verts[vert_idx].link_loops[corner_list_idx][active_layer][:-1]
+                        color_corner_lookup[color_idx][0] = bm_loop[active_layer][:-1]
 
                 bmesh.update_edit_mesh(obj.data)
 
