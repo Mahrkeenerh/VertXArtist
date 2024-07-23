@@ -155,7 +155,7 @@ def update_lookups(new_color, changes):
         vert_idx = change[1]
         corner_list_idx = change[2]
 
-        col_idx = corner_color_lookup[(obj_name, vert_idx)]
+        col_idx = corner_color_lookup[(obj_name, corner_list_idx)]
         color_corner_lookup[col_idx][1][obj_name][vert_idx].remove(corner_list_idx)
 
         if len(color_corner_lookup[col_idx][1][obj_name][vert_idx]) == 0:
@@ -171,9 +171,9 @@ def update_lookups(new_color, changes):
     # Update corner color lookup
     for change in changes:
         obj_name = change[0]
-        vert_idx = change[1]
+        corner_list_idx = change[2]
 
-        corner_color_lookup[(obj_name, vert_idx)] = new_color_idx
+        corner_color_lookup[(obj_name, corner_list_idx)] = new_color_idx
 
     return new_color_idx
 
@@ -577,7 +577,7 @@ class VRTXA_OT_Refresh(bpy.types.Operator):
             bm = bmesh.from_edit_mesh(obj.data)
             active_layer = bm.loops.layers.color.get(color_attribute.name)
 
-            def get_color(corner_list_idx, c):
+            def get_color(c):
                 color = round_color(tuple(corner[active_layer])[:-1])
                 colors.setdefault(color, [len(colors), 0])[1] += c
 
@@ -590,19 +590,19 @@ class VRTXA_OT_Refresh(bpy.types.Operator):
                 ).append(
                     corner.index
                 )
-                corner_color_lookup[(obj.name, vert.index)] = colors[color][0]
+                corner_color_lookup[(obj.name, corner.index)] = colors[color][0]
 
             # vert or edge mode
             if bpy.context.tool_settings.mesh_select_mode[0] or bpy.context.tool_settings.mesh_select_mode[1]:
                 for vert in bm.verts:
                     for corner_idx, corner in enumerate(vert.link_loops):
-                        get_color(corner_idx, int(vert.select))
+                        get_color(int(vert.select))
             # faces
             if bpy.context.tool_settings.mesh_select_mode[2]:
                 for face in bm.faces:
                     for corner in face.loops:
                         vert = corner.vert
-                        get_color(get_face_corner_idx(corner), int(face.select))
+                        get_color(int(face.select))
 
         colors = sorted(colors.items(), key=lambda x: colorsys.rgb_to_hsv(*x[0]))
         lookup_to_obj_col_idx_mapping = {x[1][0]: i for i, x in enumerate(colors)}
