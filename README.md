@@ -1,4 +1,4 @@
-![Blender](https://img.shields.io/badge/blender%203.2%20+-%23F5792A.svg?style=for-the-badge&logo=blender&logoColor=white) ![Serpens 3](https://img.shields.io/badge/SERPENS%203-00eda9?style=for-the-badge&logo=blender&logoColor=white)
+![Blender](https://img.shields.io/badge/blender%204.2%20+-%23F5792A.svg?style=for-the-badge&logo=blender&logoColor=white)
 
 
 
