@@ -3,22 +3,65 @@ import subprocess
 import sys
 
 import blf
+import bmesh
 import bpy
+from bpy_extras import view3d_utils
 import gpu
 import gpu_extras
+
+from .object_colors import gamma_correct_color
 
 
 last_hex_color = ''
 
 
-def get_color(event):
-    """Get color from mouse position"""
+def get_color(context, event):
+    """Get color from mouse position.
+    First, try to raycast to get the color from the color attribute of the object,
+    if it fails, get the color from the screen buffer.
+    """
 
     global last_hex_color
 
-    fb = gpu.state.active_framebuffer_get()
-    screen_buffer = fb.read_color(event.mouse_x, event.mouse_y, 1, 1, 3, 0, 'FLOAT')
-    color_rgb = screen_buffer.to_list()[0][0]
+    # Raycast
+    region = context.region
+    rv3d = context.region_data
+    mouse_coord = event.mouse_region_x, event.mouse_region_y
+
+    view_vector = view3d_utils.region_2d_to_vector_3d(region, rv3d, mouse_coord)
+    ray_origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, mouse_coord)
+
+    depsgraph = context.evaluated_depsgraph_get()
+    result, location, normal, index, obj, matrix = context.scene.ray_cast(depsgraph, ray_origin, view_vector)
+    color_rgb = None
+
+    # Raycast color
+    if result:
+        # Edit mode
+        if context.mode == 'EDIT_MESH':
+            bm = bmesh.from_edit_mesh(obj.data)
+            active_layer = bm.loops.layers.color.active
+
+            corner_colors = [list(corner[active_layer]) for corner in bm.faces[index].loops]
+
+        # Object or vertex paint mode
+        else:
+            color_attribute = obj.data.color_attributes.active_color
+            corner_colors = [list(color_attribute.data[i].color) for i in obj.data.polygons[index].loop_indices]
+
+        # If all colors are the same, use that color
+        if all(corner_colors[0] == corner_colors[i] for i in range(1, len(corner_colors))):
+            color_rgb = corner_colors[0][:3]
+
+        if context.mode != 'EDIT_MESH' and color_rgb is not None:
+            color_rgb = gamma_correct_color(color_rgb)
+
+    # Pixel color
+    if not result or color_rgb is None:
+        fb = gpu.state.active_framebuffer_get()
+        screen_buffer = fb.read_color(event.mouse_x, event.mouse_y, 1, 1, 3, 0, 'FLOAT')
+        color_rgb = screen_buffer.to_list()[0][0]
+
     color_hex = '%02x%02x%02x'.upper() % (round(color_rgb[0]*255), round(color_rgb[1]*255), round(color_rgb[2]*255))
     last_hex_color = color_hex
 
@@ -52,7 +95,7 @@ def draw_quad(quad, color):
     """Draw a quad on screen"""
 
     indices = ((0, 1, 2), (2, 1, 3))
-    shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
+    shader = gpu.shader.from_builtin('UNIFORM_COLOR')
     batch = gpu_extras.batch.batch_for_shader(shader, 'TRIS', {"pos": quad}, indices=indices)
     shader.bind()
     shader.uniform_float("color", color)
@@ -77,7 +120,7 @@ class VRTXA_OT_Eyedropper(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.area.type == 'VIEW_3D'
+        return context.area.type == 'VIEW_3D' or context.area.type == 'EDIT_MESH' or context.area.type == 'PAINT_VERTEX'
 
     def draw_eyedropper(self):
         base_position = vector_math(self.mouse_position, (30, -1), operator.add)
@@ -144,7 +187,7 @@ class VRTXA_OT_Eyedropper(bpy.types.Operator):
         context.area.tag_redraw()
         context.window.cursor_set('EYEDROPPER')
         
-        self.color_rgb, self.color_hex = get_color(event=event)
+        self.color_rgb, self.color_hex = get_color(context, event)
 
         if event.value == 'RELEASE':
             if event.type in ['RIGHTMOUSE', 'ESC']:
