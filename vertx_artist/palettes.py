@@ -141,11 +141,11 @@ class VRTXA_OT_ExportPalettes(bpy.types.Operator):
         return {"FINISHED"}
 
     def draw(self, context):
-        op = self.layout.operator('vertx_artist.export_palette', text='Export as .ccb', icon_value=707, emboss=True, depress=False)
+        op = self.layout.operator('vertx_artist.export_palette', text='Export as .ccb', icon='EXPORT', emboss=True, depress=False)
         op.palette_index = self.palette_index
         op.file_extension = "ccb"
 
-        op = self.layout.operator('vertx_artist.export_palette', text='Export as .gpl', icon_value=707, emboss=True, depress=False)
+        op = self.layout.operator('vertx_artist.export_palette', text='Export as .gpl', icon='EXPORT', emboss=True, depress=False)
         op.palette_index = self.palette_index
         op.file_extension = "gpl"
 

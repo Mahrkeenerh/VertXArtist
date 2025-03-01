@@ -9,6 +9,9 @@ from .layers import display_alpha_extractbake, display_alpha_panel
 
 _icons = None
 
+icon_items = bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items.items()
+default_icons = {tup[1].identifier : tup[1].value for tup in icon_items}
+
 
 class VRTXA_PT_PreferencesPopout(bpy.types.Panel):
     bl_label = 'Preferences'
@@ -71,8 +74,8 @@ class VRTXA_PT_Palettes(bpy.types.Panel):
         display_palettes(layout)
 
         row = layout.row(align=True)
-        row.operator('vertx_artist.import_palette', text='Import Palette', icon_value=706)
-        row.operator('vertx_artist.create_palette', text='Create Palette', icon_value=31)
+        row.operator('vertx_artist.import_palette', text='Import Palette', icon='IMPORT')
+        row.operator('vertx_artist.create_palette', text='Create Palette', icon='ADD')
 
 
 # Object colors panel
@@ -142,8 +145,8 @@ class VRTXA_PT_AlphaGradient(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         row = layout.row()
-        row.prop(bpy.context.scene, 'vrtxa_neg_axis', text='Negative', icon_value=0, emboss=True)
-        row.prop(bpy.context.scene, 'vrtxa_pos_axis', text='Positive', icon_value=0, emboss=True)
+        row.prop(bpy.context.scene, 'vrtxa_neg_axis', text='Negative', icon='NONE', emboss=True)
+        row.prop(bpy.context.scene, 'vrtxa_pos_axis', text='Positive', icon='NONE', emboss=True)
 
         row = layout.row()
         op = row.operator('vertx_artist.apply_alpha_gradient', text='Apply Gradient')
@@ -166,9 +169,9 @@ def can_draw():
 def display_header(layout):
     box = layout.box()
     row = box.row()
-    row.template_icon(icon_value=77, scale=1.0)
+    row.template_icon(icon_value=default_icons['BRUSHES_ALL'], scale=1.0)
     row.label(text='VertX Artist')
-    row.popover('VRTXA_PT_PreferencesPopout', text='', icon_value=233)
+    row.popover('VRTXA_PT_PreferencesPopout', text='', icon='SETTINGS')
 
     row = box.row()
     row.prop(bpy.context.scene, 'vrtxa_static_color', text='Set Color', emboss=True)
@@ -176,7 +179,7 @@ def display_header(layout):
     col = row.column(align=True)
     col.enabled = can_draw()
 
-    op = col.operator('vertx_artist.set_color', text='', icon_value=36)
+    op = col.operator('vertx_artist.set_color', text='', icon='CHECKMARK')
     op.color = bpy.context.scene.vrtxa_static_color
 
     if not col_attr_exists():
@@ -188,33 +191,33 @@ def display_header(layout):
 def display_object_colors(layout):
     box = layout.box()
     row = box.row()
-    row.label(text='Adjust Object Colors', icon_value=202)
-    row.operator('vertx_artist.showhide_object_colors', text='', icon_value=254 if bpy.context.scene.vrtxa_show_object_colors else 253, emboss=False)
+    row.label(text='Adjust Object Colors', icon='GROUP_VCOL')
+    row.operator('vertx_artist.showhide_object_colors', text='', icon='HIDE_OFF' if bpy.context.scene.vrtxa_show_object_colors else 253, emboss=False)
 
     if bpy.context.scene.vrtxa_show_object_colors:
         row = row.row(align=True)
         row.operator('vertx_artist.checkpoint', text='', icon_value=_icons['white_flag.png'].icon_id)
-        row.operator('vertx_artist.refresh', text='', icon_value=692)
+        row.operator('vertx_artist.refresh', text='', icon='FILE_REFRESH')
 
         split = box.split()
         split.label(text='Active Color:')
         row = split.row(align=True)
         if len(bpy.context.scene.vrtxa_object_colors) != 0:
-            op = row.operator('vertx_artist.select_by_color', text='', icon_value=256)
+            op = row.operator('vertx_artist.select_by_color', text='', icon='RESTRICT_SELECT_OFF')
             op.selection_tolerance = bpy.context.preferences.addons['vertx_artist'].preferences.selection_tolerance
             op.select_color = bpy.context.scene.vrtxa_object_colors[bpy.context.scene.vrtxa_active_color_index].color
             op.select_color_idx = bpy.context.scene.vrtxa_object_colors[bpy.context.scene.vrtxa_active_color_index].index
 
             row.prop(bpy.context.scene.vrtxa_object_colors[bpy.context.scene.vrtxa_active_color_index], 'color', text='')
 
-        box.label(text='Object Colors:', icon_value=251)
+        box.label(text='Object Colors:', icon='RESTRICT_COLOR_OFF')
         grid = box.grid_flow(
             columns=bpy.context.preferences.addons['vertx_artist'].preferences.object_color_columns,
             row_major=True, even_columns=False, even_rows=False, align=False
         )
         for i in range(len(bpy.context.scene.vrtxa_object_colors)):
             row = grid.row(align=True)
-            op = row.operator('vertx_artist.select_by_color', text='', icon_value=256)
+            op = row.operator('vertx_artist.select_by_color', text='', icon='RESTRICT_SELECT_OFF')
             op.selection_tolerance = bpy.context.preferences.addons['vertx_artist'].preferences.selection_tolerance
             op.select_color = bpy.context.scene.vrtxa_object_colors[i].color
             op.select_color_idx = bpy.context.scene.vrtxa_object_colors[i].index
@@ -231,7 +234,7 @@ class VRTXA_UL_DisplayPalette(bpy.types.UIList):
 
         row = row.column(align=True)
         row.enabled = can_draw()
-        op = row.operator('vertx_artist.set_color', text='', icon_value=36)
+        op = row.operator('vertx_artist.set_color', text='', icon='CHECKMARK')
         op.color = item.color
 
 
@@ -242,7 +245,7 @@ def display_palettes(layout):
     )
     for p_i in range(len(bpy.context.scene.vrtxa_palettes)):
         box = outer_grid.box()
-        box.prop(bpy.context.scene.vrtxa_palettes[p_i], 'name', text='', icon_value=54)
+        box.prop(bpy.context.scene.vrtxa_palettes[p_i], 'name', text='', icon='COLOR')
 
         if bpy.context.preferences.addons['vertx_artist'].preferences.color_grid_columns != 1:
             grid = box.grid_flow(
@@ -254,7 +257,7 @@ def display_palettes(layout):
                 outer_row.prop(bpy.context.scene.vrtxa_palettes[p_i].palette_colors[c_i], 'color', text='')
                 col = outer_row.column(align=True)
                 col.enabled = can_draw()
-                op = col.operator('vertx_artist.set_color', text='', icon_value=36)
+                op = col.operator('vertx_artist.set_color', text='', icon='CHECKMARK')
                 op.color = bpy.context.scene.vrtxa_palettes[p_i].palette_colors[c_i].color
 
         else:
@@ -263,7 +266,7 @@ def display_palettes(layout):
             col = outer_row.column()
             inner_col = col.column(align=True)
             row = inner_col.row(align=True)
-            op = row.operator('vertx_artist.add_palette_color', text='', icon_value=31)
+            op = row.operator('vertx_artist.add_palette_color', text='', icon='ADD')
             op.palette_index = p_i
             op.palette_color_index = bpy.context.scene.vrtxa_palettes[p_i].index
             op.color_name = 'Color'
@@ -271,7 +274,7 @@ def display_palettes(layout):
 
             row = inner_col.row(align=True)
             row.enabled = len(bpy.context.scene.vrtxa_palettes[p_i].palette_colors) != 0
-            op = row.operator('vertx_artist.remove_palette_color', text='', icon_value=32)
+            op = row.operator('vertx_artist.remove_palette_color', text='', icon='REMOVE')
             op.palette_index = p_i
             op.palette_color_index = bpy.context.scene.vrtxa_palettes[p_i].index
 
@@ -280,41 +283,41 @@ def display_palettes(layout):
             col = col.column(align=True)
             row = col.row(align=True)
             row.enabled = len(list(bpy.context.scene.vrtxa_palettes[p_i].palette_colors)) != 0 and bpy.context.scene.vrtxa_palettes[p_i].index != 0
-            op = row.operator('vertx_artist.move_palette_color', text='', icon_value=7)
+            op = row.operator('vertx_artist.move_palette_color', text='', icon='TRIA_UP')
             op.palette_index = p_i
             op.palette_color_index = bpy.context.scene.vrtxa_palettes[p_i].index
             op.direction = -1
 
             row = col.row(align=True)
             row.enabled = len(bpy.context.scene.vrtxa_palettes[p_i].palette_colors) != 0 and bpy.context.scene.vrtxa_palettes[p_i].index != len(bpy.context.scene.vrtxa_palettes[p_i].palette_colors) - 1
-            op = row.operator('vertx_artist.move_palette_color', text='', icon_value=5)
+            op = row.operator('vertx_artist.move_palette_color', text='', icon='TRIA_DOWN')
             op.palette_index = p_i
             op.palette_color_index = bpy.context.scene.vrtxa_palettes[p_i].index
             op.direction = 1
 
         row = box.row(align=True)
-        op = row.operator('vertx_artist.import_palette', text='Import', icon_value=706)
+        op = row.operator('vertx_artist.import_palette', text='Import', icon='IMPORT')
         op.palette_index = p_i
         op.replace = True
 
         inner_row = row.row(align=True)
         inner_row.enabled = len(bpy.context.scene.vrtxa_palettes[p_i].palette_colors) != 0
-        op = inner_row.operator('vertx_artist.export_palettes', text='Export', icon_value=707)
+        op = inner_row.operator('vertx_artist.export_palettes', text='Export', icon='EXPORT')
         op.palette_index = p_i
-        op = row.operator('vertx_artist.remove_palette', text='Remove', icon_value=21)
+        op = row.operator('vertx_artist.remove_palette', text='Remove', icon='TRASH')
         op.palette_index = p_i
         row.separator(factor=0.25)
 
         inner_row = row.row(align=True)
         inner_inner_row = inner_row.row(align=True)
         inner_inner_row.enabled = p_i != 0
-        op = inner_inner_row.operator('vertx_artist.move_palette', text='', icon_value=7)
+        op = inner_inner_row.operator('vertx_artist.move_palette', text='', icon='TRIA_UP')
         op.palette_index = p_i
         op.direction = -1
 
         inner_inner_row = inner_row.row(align=True)
         inner_inner_row.enabled = p_i != len(bpy.context.scene.vrtxa_palettes) - 1
-        op = inner_inner_row.operator('vertx_artist.move_palette', text='', icon_value=5)
+        op = inner_inner_row.operator('vertx_artist.move_palette', text='', icon='TRIA_DOWN')
         op.palette_index = p_i
         op.direction = 1
 
@@ -327,8 +330,8 @@ def prepend_tool_panel(self, context):
     display_palettes(self.layout)
 
     row = self.layout.row(align=True)
-    row.operator('vertx_artist.import_palette', text='Import Palette', icon_value=706)
-    row.operator('vertx_artist.create_palette', text='Create Palette', icon_value=31)
+    row.operator('vertx_artist.import_palette', text='Import Palette', icon='IMPORT')
+    row.operator('vertx_artist.create_palette', text='Create Palette', icon='ADD')
 
     if bpy.context.mode == 'EDIT_MESH':
         if col_attr_exists():
@@ -356,8 +359,8 @@ def prepend_object_tool_panel(self, context):
     if  bpy.context.mode == 'OBJECT':
         box = self.layout.box()
         row = box.row()
-        row.label(text='Adjust Object Colors', icon_value=202)
-        row.operator('vertx_artist.showhide_object_colors', text='', icon_value=254 if bpy.context.scene.vrtxa_show_object_colors else 253, emboss=False, depress=True)
+        row.label(text='Adjust Object Colors', icon='GROUP_VCOL')
+        row.operator('vertx_artist.showhide_object_colors', text='', icon='HIDE_OFF' if bpy.context.scene.vrtxa_show_object_colors else 253, emboss=False, depress=True)
         self.layout.separator(factor=0.5)
 
 
@@ -373,11 +376,11 @@ class VRTXA_MT_Pie(bpy.types.Menu):
         layout = self.layout.menu_pie()
 
         display_alpha_extractbake(layout, 'Show Alpha', 'Hide Alpha')
-        op = layout.operator('vertx_artist.set_color', text='Set Color', icon_value=36)
+        op = layout.operator('vertx_artist.set_color', text='Set Color', icon='CHECKMARK')
         op.use_static = True
 
         layout.operator('vertx_artist.checkpoint', icon_value=_icons['white_flag.png'].icon_id)
-        layout.operator('vertx_artist.refresh', text='Refresh', icon_value=692)
+        layout.operator('vertx_artist.refresh', text='Refresh', icon='FILE_REFRESH')
 
 
 def register():

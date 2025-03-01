@@ -242,7 +242,7 @@ class VRTXA_UL_DisplayModifications(bpy.types.UIList):
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         row = layout.row()
-        op = row.operator('vertx_artist.toggle_color_transformation_visibility', text='', icon_value=254 if item.include else 253, emboss=False)
+        op = row.operator('vertx_artist.toggle_color_transformation_visibility', text='', icon='HIDE_OFF' if item.include else 253, emboss=False)
         op.modification_index = index
         row.prop(item, 'blend_type', text='')
         row.prop(item, 'blend_layer', text='')
@@ -366,7 +366,7 @@ class VRTXA_OT_RefreshColorTransformationView(bpy.types.Operator):
         return {"FINISHED"}
 
     def draw(self, context):
-        self.layout.label(text='Warning - refreshing view WILL remove and replace all your object materials.', icon_value=2)
+        self.layout.label(text='Warning - refreshing view WILL remove and replace all your object materials.', icon='ERROR')
         self.layout.prop(bpy.context.preferences.addons['vertx_artist'].preferences, 'hide_refresh_stack_warning', text="Don't show again")
 
     def invoke(self, context, event):
@@ -645,7 +645,7 @@ class VRTXA_OT_ApplyColorTransformationStack(bpy.types.Operator):
 
     def draw(self, context):
         layout = self.layout
-        layout.prop(self, 'only_visible', text='Apply', icon_value=0, emboss=True)
+        layout.prop(self, 'only_visible', text='Apply', icon='NONE', emboss=True)
 
     def invoke(self, context, event):
         modification_stack = bpy.context.view_layer.objects.active.vrtxa_modification_stacks[bpy.context.view_layer.objects.active.vrtxa_modification_stack_enum]
@@ -695,10 +695,10 @@ class VRTXA_PT_ColorTransformations(bpy.types.Panel):
             row.prop(bpy.context.view_layer.objects.active, 'vrtxa_modification_stack_enum', text='')
 
         row = row.row(align=True)
-        row.operator('vertx_artist.add_color_transformation', text='', icon_value=31)
+        row.operator('vertx_artist.add_color_transformation', text='', icon='ADD')
         inner_row = row.row(align=True)
         inner_row.enabled = bpy.context.view_layer.objects.active.vrtxa_modification_stack_enum != 'None'
-        inner_row.operator('vertx_artist.remove_color_transformation', text='', icon_value=32)
+        inner_row.operator('vertx_artist.remove_color_transformation', text='', icon='REMOVE')
 
         if bpy.context.view_layer.objects.active.vrtxa_modification_stack_enum != 'None':
             top_col = self.layout.column()
@@ -710,32 +710,32 @@ class VRTXA_PT_ColorTransformations(bpy.types.Panel):
             outer_col = row.column()
             outer_col.separator(factor=0.5)
             col = outer_col.column(align=True)
-            col.operator('vertx_artist.add_color_transformation_layer', text='', icon_value=31)
+            col.operator('vertx_artist.add_color_transformation_layer', text='', icon='ADD')
 
             row = col.row(align=True)
             row.enabled = len(active_modification_stack.modifications) != 0
-            row.operator('vertx_artist.remove_color_transformation_layer', text='', icon_value=32)
+            row.operator('vertx_artist.remove_color_transformation_layer', text='', icon='REMOVE')
 
             outer_col.separator(factor=0.25)
             col = outer_col.column(align=True)
             row = col.row(align=True)
             row.enabled = len(active_modification_stack.modifications) != 0 and active_modification_stack.index != 0
-            op = row.operator('vertx_artist.move_transformation_layer', text='', icon_value=7)
+            op = row.operator('vertx_artist.move_transformation_layer', text='', icon='TRIA_UP')
             op.direction = -1
 
             row = col.row(align=True)
             row.enabled = len(active_modification_stack.modifications) != 0 and active_modification_stack.index != len(active_modification_stack.modifications) - 1
-            op = row.operator('vertx_artist.move_transformation_layer', text='', icon_value=5)
+            op = row.operator('vertx_artist.move_transformation_layer', text='', icon='TRIA_DOWN')
             op.direction = 1
 
             col.separator(factor=0.0)
 
             row = top_col.row()
-            row.operator('vertx_artist.refresh_color_transformation_view', text='Refresh Material Preview', icon_value=692)
+            row.operator('vertx_artist.refresh_color_transformation_view', text='Refresh Material Preview', icon='FILE_REFRESH')
 
             row = row.row()
             row.enabled = len(active_modification_stack.modifications) != 0
-            op = row.operator('vertx_artist.apply_color_transformation_stack', text='Apply Stack', icon_value=36)
+            op = row.operator('vertx_artist.apply_color_transformation_stack', text='Apply Stack', icon='CHECKMARK')
 
 
 def register():

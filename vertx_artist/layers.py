@@ -52,8 +52,8 @@ class VRTXA_OT_ToggleLayerEditing(bpy.types.Operator):
             return
 
         layout = self.layout
-        layout.label(text='Warning - editing layer channels may result in unwanted behavior.', icon_value=2)
-        layout.prop(bpy.context.preferences.addons['vertx_artist'].preferences, 'hide_edit_warning', text="Don't show again", icon_value=0)
+        layout.label(text='Warning - editing layer channels may result in unwanted behavior.', icon='ERROR')
+        layout.prop(bpy.context.preferences.addons['vertx_artist'].preferences, 'hide_edit_warning', text="Don't show again", icon='NONE')
 
     def invoke(self, context, event):
         if bpy.context.preferences.addons['vertx_artist'].preferences.hide_edit_warning:
@@ -379,7 +379,7 @@ def refresh_layers(dummy):
 class VRTXA_UL_DisplayLayers(bpy.types.UIList):
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        layout.prop(bpy.context.object.data.color_attributes[index], 'name', text='', icon_value=202, emboss=False)
+        layout.prop(bpy.context.object.data.color_attributes[index], 'name', text='', icon='GROUP_VCOL', emboss=False)
         row = layout.row()
         row.enabled = bpy.context.scene.vrtxa_enable_editing
 
@@ -389,10 +389,10 @@ class VRTXA_UL_DisplayLayers(bpy.types.UIList):
             row.label(text=item.channels)
 
         if index == bpy.context.object.data.color_attributes.render_color_index:
-            op = layout.operator('vertx_artist.toggle_render_color_layer', text='', icon_value=258, emboss=False)
+            op = layout.operator('vertx_artist.toggle_render_color_layer', text='', icon='RESTRICT_RENDER_OFF', emboss=False)
             op.layer_name = bpy.context.object.data.color_attributes[index].name
         else:
-            op = layout.operator('vertx_artist.toggle_render_color_layer', text='', icon_value=257, emboss=False)
+            op = layout.operator('vertx_artist.toggle_render_color_layer', text='', icon='RESTRICT_RENDER_ON', emboss=False)
             op.layer_name = bpy.context.object.data.color_attributes[index].name
 
 
@@ -413,23 +413,23 @@ class VRTXA_PT_ColorLayers(bpy.types.Panel):
         if bpy.context.object.data is None or bpy.context.object.data.color_attributes.active_color is None:
             row = layout.row()
             row.alert = True
-            row.operator('vertx_artist.add_layer', text='Add Color Layer', icon_value=31)
+            row.operator('vertx_artist.add_layer', text='Add Color Layer', icon='ADD')
 
         if len(bpy.context.object.data.color_attributes) != len(bpy.context.view_layer.objects.active.vrtxa_layers):
             row = layout.row()
             row.label(text=f'VertX Artist Color Layers: {len(bpy.context.view_layer.objects.active.vrtxa_layers)}, Color Attributes: {len(bpy.context.object.data.color_attributes)}')
             row.alert = True
-            row.operator('vertx_artist.synchronize_layers', text='Refresh', icon_value=692)
+            row.operator('vertx_artist.synchronize_layers', text='Refresh', icon='FILE_REFRESH')
 
         row = layout.row()
         row.template_list('VRTXA_UL_DisplayLayers', '', bpy.context.view_layer.objects.active, 'vrtxa_layers', bpy.context.object.data.color_attributes, 'active_color_index')
     
         control_col = row.column()
         add_remove_col = control_col.column(align=True)
-        add_remove_col.operator('vertx_artist.add_layer', text='', icon_value=31)
-        add_remove_col.operator('geometry.color_attribute_remove', text='', icon_value=32)
+        add_remove_col.operator('vertx_artist.add_layer', text='', icon='ADD')
+        add_remove_col.operator('geometry.color_attribute_remove', text='', icon='REMOVE')
         control_col.separator(factor=0.25)
-        control_col.operator('vertx_artist.toggle_layer_editing', text='', icon_value=197, depress=bpy.context.scene.vrtxa_enable_editing)
+        control_col.operator('vertx_artist.toggle_layer_editing', text='', icon='GREASEPENCIL', depress=bpy.context.scene.vrtxa_enable_editing)
 
         display_alpha_extractbake(self.layout, 'Extract Alpha', 'Bake Alpha')
 
@@ -441,10 +441,10 @@ def display_alpha_extractbake(layout, extract_name, bake_name):
     channels = bpy.context.view_layer.objects.active.vrtxa_layers[bpy.context.object.data.color_attributes.active_color_index].channels
 
     if channels == 'RGBA':
-        layout.operator('vertx_artist.extract_alpha', text=extract_name, icon_value=598)
+        layout.operator('vertx_artist.extract_alpha', text=extract_name, icon='COPYDOWN')
 
     if channels == 'A':
-        op = layout.operator('vertx_artist.bake_alpha', text=bake_name, icon_value=599)
+        op = layout.operator('vertx_artist.bake_alpha', text=bake_name, icon='PASTEDOWN')
         op.layer_name = ''
 
 
@@ -453,10 +453,10 @@ def display_alpha_panel(self, context):
         return
 
     box = self.layout.box()
-    box.label(text='Alpha Gradients', icon_value=126)
+    box.label(text='Alpha Gradients', icon='NODE_TEXTURE')
     row = box.row()
-    row.prop(bpy.context.scene, 'vrtxa_neg_axis', text='Negative', icon_value=0, emboss=True)
-    row.prop(bpy.context.scene, 'vrtxa_pos_axis', text='Positive', icon_value=0, emboss=True)
+    row.prop(bpy.context.scene, 'vrtxa_neg_axis', text='Negative', icon='NONE', emboss=True)
+    row.prop(bpy.context.scene, 'vrtxa_pos_axis', text='Positive', icon='NONE', emboss=True)
 
     row = box.row()
     op = row.operator('vertx_artist.apply_alpha_gradient', text='Apply Gradient')
