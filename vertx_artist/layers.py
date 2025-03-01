@@ -449,7 +449,7 @@ def display_alpha_extractbake(layout, extract_name, bake_name):
 
 
 def display_alpha_panel(self, context):
-    if not (bpy.context.mode == 'OBJECT' or bpy.context.mode == 'EDIT_MESH'):
+    if not bpy.context.mode == 'EDIT_MESH':
         return
 
     box = self.layout.box()

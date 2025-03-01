@@ -91,6 +91,9 @@ def refresh_default_material():
 
     bpy.data.materials['display material vertx artist'].node_tree.nodes.clear()
 
+    if bpy.context.view_layer.objects.active.vrtxa_modification_stack_enum == 'None':
+        return bpy.data.materials['display material vertx artist']
+
     # create connections
     modification_stack = bpy.context.view_layer.objects.active.vrtxa_modification_stacks[bpy.context.view_layer.objects.active.vrtxa_modification_stack_enum]
     modifications = modification_stack.modifications if modification_stack.name != 'None' else None
