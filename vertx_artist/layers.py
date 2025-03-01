@@ -601,7 +601,6 @@ def register():
     bpy.utils.register_class(VRTXA_OT_Bake_Alpha)
 
     bpy.app.handlers.depsgraph_update_post.append(refresh_layers)
-    bpy.types.VIEW3D_PT_tools_active.prepend(display_alpha_panel)
 
     bpy.utils.register_class(VRTXA_UL_DisplayLayers)
     bpy.utils.register_class(VRTXA_PT_ColorLayers)
@@ -623,7 +622,6 @@ def unregister():
     bpy.utils.unregister_class(VRTXA_OT_Bake_Alpha)
 
     bpy.app.handlers.depsgraph_update_post.remove(refresh_layers)
-    bpy.types.VIEW3D_PT_tools_active.remove(display_alpha_panel)
 
     bpy.utils.unregister_class(VRTXA_UL_DisplayLayers)
     bpy.utils.unregister_class(VRTXA_PT_ColorLayers)

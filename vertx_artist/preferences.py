@@ -7,6 +7,30 @@ keymaps = {}
 class VRTXA_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = 'vertx_artist'
 
+    def reload_panel_location(self, context):
+        """Reload panels when panel location preference changes"""
+        # Unregister and re-register tool_panel module
+        from . import tool_panel
+        tool_panel.unregister()
+        tool_panel.register()
+
+        # Force redraw of all 3D view areas
+        for window in bpy.context.window_manager.windows:
+            for area in window.screen.areas:
+                if area.type == 'VIEW_3D':
+                    area.tag_redraw()
+
+    panel_location: bpy.props.EnumProperty(
+        name='Panel Location',
+        description='Where to display the VertX Artist panels',
+        items=[
+            ('TOOLS', 'Tools Panel', 'Display in the left tools panel'),
+            ('NPANEL', 'N-Panel', 'Display in the right properties panel')
+        ],
+        default='TOOLS',
+        update=reload_panel_location
+    )
+
     color_grid_columns: bpy.props.IntProperty(
         name='color_grid_columns',
         description='Number of columns to use for grid color display',
@@ -38,7 +62,6 @@ class VRTXA_AddonPreferences(bpy.types.AddonPreferences):
         default=False
     )
 
-
     override_selection_color: bpy.props.EnumProperty(
         name='override_selection_color',
         items=[('None', 'None', '', 0, 0), ('White Override', 'White Override', '', 0, 1), ('Full Override', 'Full Override', '', 0, 2)]
@@ -53,7 +76,7 @@ class VRTXA_AddonPreferences(bpy.types.AddonPreferences):
     )
 
     def draw(self, context):
-        layout = self.layout 
+        layout = self.layout
         layout.prop(keymaps['set_color'][1], 'type', text='Set Color', full_event=True)
         layout.prop(keymaps['pie_menu'][1], 'type', text='Color Eyedropper', full_event=True)
         layout.prop(keymaps['eyedropper'][1], 'type', text='Quick Access Menu', full_event=True)

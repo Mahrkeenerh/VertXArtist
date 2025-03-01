@@ -4,7 +4,7 @@ import bpy
 import bpy.utils.previews
 
 from .tools import col_attr_exists
-from .layers import display_alpha_extractbake
+from .layers import display_alpha_extractbake, display_alpha_panel
 
 
 _icons = None
@@ -20,6 +20,10 @@ class VRTXA_PT_PreferencesPopout(bpy.types.Panel):
         layout = self.layout
         layout.label(text='Preferences')
 
+        row = layout.row()
+        row.label(text='Panel Location:')
+        row.prop(bpy.context.preferences.addons['vertx_artist'].preferences, 'panel_location', text='')
+
         col = layout.column(align=True)
         col.prop(bpy.context.preferences.addons['vertx_artist'].preferences, 'color_grid_columns', text='Color Grid Columns')
         col.prop(bpy.context.preferences.addons['vertx_artist'].preferences, 'object_color_columns', text='Object Color Columns')
@@ -30,6 +34,127 @@ class VRTXA_PT_PreferencesPopout(bpy.types.Panel):
         box = layout.box()
         box.prop(bpy.context.preferences.addons['vertx_artist'].preferences, 'hide_edit_warning', text='Hide Edit Warning')
         box.prop(bpy.context.preferences.addons['vertx_artist'].preferences, 'hide_refresh_stack_warning', text='Hide Refresh Stack Warning')
+
+
+# Main header panel
+class VRTXA_PT_Header(bpy.types.Panel):
+    bl_label = "Header"
+    bl_idname = "VRTXA_PT_Header"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "VertX Artist"
+    bl_order = 0  # Will be displayed first
+
+    @classmethod
+    def poll(cls, context):
+        return bpy.context.mode in ['PAINT_VERTEX', 'EDIT_MESH', 'OBJECT']
+
+    def draw(self, context):
+        display_header(self.layout)
+
+# Palettes panel
+class VRTXA_PT_Palettes(bpy.types.Panel):
+    bl_label = "Color Palettes"
+    bl_idname = "VRTXA_PT_Palettes"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "VertX Artist"
+    bl_options = {'DEFAULT_CLOSED'}
+    bl_order = 1  # Default display order
+
+    @classmethod
+    def poll(cls, context):
+        return bpy.context.mode in ['PAINT_VERTEX', 'EDIT_MESH']
+
+    def draw(self, context):
+        layout = self.layout
+        display_palettes(layout)
+
+        row = layout.row(align=True)
+        row.operator('vertx_artist.import_palette', text='Import Palette', icon_value=706)
+        row.operator('vertx_artist.create_palette', text='Create Palette', icon_value=31)
+
+
+# Object colors panel
+class VRTXA_PT_ObjectColors(bpy.types.Panel):
+    bl_label = "Object Colors"
+    bl_idname = "VRTXA_PT_ObjectColors"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "VertX Artist"
+    bl_order = 2  # Default display order
+
+    @classmethod
+    def poll(cls, context):
+        if bpy.context.mode == 'OBJECT':
+            return True
+        elif bpy.context.mode == 'EDIT_MESH':
+            return col_attr_exists()
+        return False
+
+    def draw(self, context):
+        display_object_colors(self.layout)
+
+
+# Vertex tools panel
+class VRTXA_PT_VertexTools(bpy.types.Panel):
+    bl_label = "Vertex Paint Tools"
+    bl_idname = "VRTXA_PT_VertexTools"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "VertX Artist"
+    bl_options = {'DEFAULT_CLOSED'}
+    bl_order = 3  # Default display order
+
+    @classmethod
+    def poll(cls, context):
+        return bpy.context.mode == 'PAINT_VERTEX'
+
+    def draw(self, context):
+        layout = self.layout
+        split = layout.split(align=True)
+        split.enabled = bpy.context.mode == 'PAINT_VERTEX'
+
+        inner_split = split.split(align=True)
+        inner_split.operator('paint.vertex_color_brightness_contrast', text='Brightness/Contrast')
+        inner_split.operator('paint.vertex_color_hsv', text='HSV')
+
+        split = layout.split(align=True)
+        inner_split = split.split(align=True)
+        inner_split.operator('paint.vertex_color_smooth', text='Smooth')
+        inner_split.operator('paint.vertex_color_dirt', text='Dirt')
+
+
+# Alpha gradients panel 
+class VRTXA_PT_AlphaGradient(bpy.types.Panel):
+    bl_label = "Alpha Gradients"
+    bl_idname = "VRTXA_PT_AlphaGradient"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "VertX Artist"
+    bl_options = {'DEFAULT_CLOSED'}
+    bl_order = 4  # Default display order
+
+    @classmethod
+    def poll(cls, context):
+        return bpy.context.mode == 'EDIT_MESH' and col_attr_exists()
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        row.prop(bpy.context.scene, 'vrtxa_neg_axis', text='Negative', icon_value=0, emboss=True)
+        row.prop(bpy.context.scene, 'vrtxa_pos_axis', text='Positive', icon_value=0, emboss=True)
+
+        row = layout.row()
+        op = row.operator('vertx_artist.apply_alpha_gradient', text='Apply Gradient')
+        op.neg_axis = bpy.context.scene.vrtxa_neg_axis
+        op.pos_axis = bpy.context.scene.vrtxa_pos_axis
+
+        op = row.operator('vertx_artist.apply_alpha_gradient', text='Apply Positive')
+        op.neg_axis = bpy.context.scene.vrtxa_pos_axis
+        op.pos_axis = bpy.context.scene.vrtxa_pos_axis
+
+        display_alpha_extractbake(layout, 'Show Alpha', 'Hide Alpha')
 
 
 def can_draw():
@@ -64,7 +189,7 @@ def display_object_colors(layout):
     box = layout.box()
     row = box.row()
     row.label(text='Adjust Object Colors', icon_value=202)
-    row.operator('vertx_artist.showhide_object_colors', text='', icon_value=254 if bpy.context.scene.vrtxa_show_object_colors else 253)
+    row.operator('vertx_artist.showhide_object_colors', text='', icon_value=254 if bpy.context.scene.vrtxa_show_object_colors else 253, emboss=False)
 
     if bpy.context.scene.vrtxa_show_object_colors:
         row = row.row(align=True)
@@ -258,14 +383,31 @@ class VRTXA_MT_Pie(bpy.types.Menu):
 def register():
     global _icons
     _icons = bpy.utils.previews.new()
-    if not 'white_flag.png' in _icons: _icons.load('white_flag.png', os.path.join(os.path.dirname(__file__), 'white_flag.png'), "IMAGE")
+    if not 'white_flag.png' in _icons:
+        _icons.load('white_flag.png', os.path.join(os.path.dirname(__file__), 'white_flag.png'), "IMAGE")
 
     bpy.utils.register_class(VRTXA_UL_DisplayPalette)
     bpy.utils.register_class(VRTXA_PT_PreferencesPopout)
-    bpy.types.VIEW3D_PT_tools_active.prepend(prepend_tool_panel)
-    bpy.types.VIEW3D_PT_tools_active.prepend(prepend_object_tool_panel)
-
     bpy.utils.register_class(VRTXA_MT_Pie)
+
+    # Panel location based on preferences
+    try:
+        panel_location = bpy.context.preferences.addons['vertx_artist'].preferences.panel_location
+    except:
+        panel_location = 'TOOLS'  # Default to tools panel if preference not found
+
+    if panel_location == 'NPANEL':
+        # Register all N-panel classes as independent panels
+        bpy.utils.register_class(VRTXA_PT_Header)
+        bpy.utils.register_class(VRTXA_PT_Palettes)
+        bpy.utils.register_class(VRTXA_PT_ObjectColors)
+        bpy.utils.register_class(VRTXA_PT_VertexTools)
+        bpy.utils.register_class(VRTXA_PT_AlphaGradient)
+    else:
+        # Original tool panel approach
+        bpy.types.VIEW3D_PT_tools_active.prepend(display_alpha_panel)
+        bpy.types.VIEW3D_PT_tools_active.prepend(prepend_tool_panel)
+        bpy.types.VIEW3D_PT_tools_active.prepend(prepend_object_tool_panel)
 
 
 def unregister():
@@ -273,7 +415,22 @@ def unregister():
 
     bpy.utils.unregister_class(VRTXA_UL_DisplayPalette)
     bpy.utils.unregister_class(VRTXA_PT_PreferencesPopout)
-    bpy.types.VIEW3D_PT_tools_active.remove(prepend_tool_panel)
-    bpy.types.VIEW3D_PT_tools_active.remove(prepend_object_tool_panel)
-
     bpy.utils.unregister_class(VRTXA_MT_Pie)
+
+    # Always try to remove tool panel prepends regardless of current setting
+    try:
+        bpy.types.VIEW3D_PT_tools_active.remove(display_alpha_panel)
+        bpy.types.VIEW3D_PT_tools_active.remove(prepend_tool_panel)
+        bpy.types.VIEW3D_PT_tools_active.remove(prepend_object_tool_panel)
+    except:
+        print('Could not remove tool panel')
+
+    # Always try to unregister N panel classes regardless of current setting
+    try:
+        bpy.utils.unregister_class(VRTXA_PT_Header)
+        bpy.utils.unregister_class(VRTXA_PT_Palettes)
+        bpy.utils.unregister_class(VRTXA_PT_ObjectColors)
+        bpy.utils.unregister_class(VRTXA_PT_VertexTools)
+        bpy.utils.unregister_class(VRTXA_PT_AlphaGradient)
+    except:
+        print('Could not unregister N panel')
