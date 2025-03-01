@@ -29,6 +29,7 @@ from . import (
 bl_info = {
     "name" : "VertX Artist",
     "author" : "Mahrkeenerh", 
+    "doc_url": "https://github.com/Mahrkeenerh/VertXArtist",
     "description" : "Vertex coloring tool using Color Attributes",
     "blender" : (3, 4, 0),
     "version" : (3, 3, 0),
