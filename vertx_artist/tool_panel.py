@@ -78,6 +78,52 @@ class VRTXA_PT_Palettes(bpy.types.Panel):
         row.operator('vertx_artist.create_palette', text='Create Palette', icon='ADD')
 
 
+class VRTXA_PT_HSVAdjust(bpy.types.Panel):
+    bl_label = "HSV Adjust"
+    bl_idname = "VRTXA_PT_HSVAdjust"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "VertX Artist"
+    bl_order = 2 
+
+    @classmethod
+    def poll(cls, context):
+        return bpy.context.mode == 'EDIT_MESH' and col_attr_exists()
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+
+        row = layout.row()
+        row.prop(scene, "vrtxa_hsv_mode", text="Mode", expand=True)
+
+        row = layout.row()
+        arr_row = row.row(align=True)
+        # Show appropriate step control based on mode
+        if scene.vrtxa_hsv_mode == 'HUE':
+            row.prop(scene, "vrtxa_hue_steps", text="Degrees")
+        else:
+            row.prop(scene, "vrtxa_sv_steps", text="Percent")
+                
+        # Use directional icons based on the selected mode
+        if scene.vrtxa_hsv_mode == 'HUE':
+            op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_LEFT')
+            op.direction = -1
+            op.mode = scene.vrtxa_hsv_mode
+
+            op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_RIGHT')
+            op.direction = 1
+            op.mode = scene.vrtxa_hsv_mode
+        else:
+            op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_UP')
+            op.direction = 1
+            op.mode = scene.vrtxa_hsv_mode
+
+            op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_DOWN')
+            op.direction = -1
+            op.mode = scene.vrtxa_hsv_mode
+
+
 # Object colors panel
 class VRTXA_PT_ObjectColors(bpy.types.Panel):
     bl_label = "Object Colors"
@@ -85,7 +131,7 @@ class VRTXA_PT_ObjectColors(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "VertX Artist"
-    bl_order = 2  # Default display order
+    bl_order = 3  # Default display order
 
     @classmethod
     def poll(cls, context):
@@ -107,7 +153,7 @@ class VRTXA_PT_VertexTools(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = "VertX Artist"
     bl_options = {'DEFAULT_CLOSED'}
-    bl_order = 3  # Default display order
+    bl_order = 4  # Default display order
 
     @classmethod
     def poll(cls, context):
@@ -136,7 +182,7 @@ class VRTXA_PT_AlphaGradient(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = "VertX Artist"
     bl_options = {'DEFAULT_CLOSED'}
-    bl_order = 4  # Default display order
+    bl_order = 5  # Default display order
 
     @classmethod
     def poll(cls, context):
@@ -186,6 +232,43 @@ def display_header(layout):
         row = box.row()
         row.alert = True
         op = row.operator('vertx_artist.add_layer', text='Add Color Layer')
+
+
+def display_hsv_panel(layout):
+    box = layout.box()
+    row = box.row()
+    row.label(text='HSV Adjust', icon='GROUP_VCOL')
+
+    scene = bpy.context.scene
+
+    row = box.row()
+    row.prop(scene, "vrtxa_hsv_mode", text="Mode", expand=True)
+
+    row = box.row()
+    arr_row = row.row(align=True)
+    # Show appropriate step control based on mode
+    if scene.vrtxa_hsv_mode == 'HUE':
+        row.prop(scene, "vrtxa_hue_steps", text="Degrees")
+    else:
+        row.prop(scene, "vrtxa_sv_steps", text="Percent")
+
+    # Use directional icons based on the selected mode
+    if scene.vrtxa_hsv_mode == 'HUE':
+        op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_LEFT')
+        op.direction = -1
+        op.mode = scene.vrtxa_hsv_mode
+
+        op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_RIGHT')
+        op.direction = 1
+        op.mode = scene.vrtxa_hsv_mode
+    else:
+        op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_UP')
+        op.direction = 1
+        op.mode = scene.vrtxa_hsv_mode
+
+        op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_DOWN')
+        op.direction = -1
+        op.mode = scene.vrtxa_hsv_mode
 
 
 def display_object_colors(layout):
@@ -336,6 +419,8 @@ def prepend_tool_panel(self, context):
     if bpy.context.mode == 'EDIT_MESH':
         if col_attr_exists():
             self.layout.separator(factor=1.0)
+            display_hsv_panel(self.layout)
+            self.layout.separator(factor=1.0)
             display_object_colors(self.layout)
 
     else:
@@ -403,6 +488,7 @@ def register():
         # Register all N-panel classes as independent panels
         bpy.utils.register_class(VRTXA_PT_Header)
         bpy.utils.register_class(VRTXA_PT_Palettes)
+        bpy.utils.register_class(VRTXA_PT_HSVAdjust)
         bpy.utils.register_class(VRTXA_PT_ObjectColors)
         bpy.utils.register_class(VRTXA_PT_VertexTools)
         bpy.utils.register_class(VRTXA_PT_AlphaGradient)
@@ -432,6 +518,7 @@ def unregister():
     try:
         bpy.utils.unregister_class(VRTXA_PT_Header)
         bpy.utils.unregister_class(VRTXA_PT_Palettes)
+        bpy.utils.unregister_class(VRTXA_PT_HSVAdjust)
         bpy.utils.unregister_class(VRTXA_PT_ObjectColors)
         bpy.utils.unregister_class(VRTXA_PT_VertexTools)
         bpy.utils.unregister_class(VRTXA_PT_AlphaGradient)

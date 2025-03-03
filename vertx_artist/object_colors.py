@@ -748,6 +748,156 @@ class VRTXA_OT_SelectByColor(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class VRTXA_OT_AdjustHSV(bpy.types.Operator):
+    bl_idname = "vertx_artist.adjust_hsv"
+    bl_label = "Adjust HSV"
+    bl_description = "Adjust HSV values for selected faces"
+    bl_options = {"REGISTER", "UNDO"}
+
+    mode: bpy.props.EnumProperty(
+        name="Mode",
+        items=[
+            ('HUE', 'Hue', 'Adjust hue'),
+            ('SATURATION', 'Saturation', 'Adjust saturation'),
+            ('VALUE', 'Value', 'Adjust value')
+        ],
+        default='HUE'
+    )
+    direction: bpy.props.IntProperty(
+        name="Direction",
+        description="Direction to adjust (1 or -1)",
+        default=1
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'EDIT_MESH' and context.object is not None and context.object.data.color_attributes.active_color is not None
+
+    def execute(self, context):
+        obj = bpy.context.object
+        objs = bpy.context.selected_objects
+        if not objs:
+            objs = [obj]
+
+        # Ignore non-mesh objects
+        objs = [x for x in objs if x.type == "MESH"]
+
+        # Set the adjustment amount based on mode and steps
+        if self.mode == 'HUE':
+            # 1/360 per step (in degrees on color wheel)
+            adjust_value = (1.0/360.0) * context.scene.vrtxa_hue_steps * self.direction
+        else:
+            # 1/100 per step (1% increments for saturation and value)
+            adjust_value = 0.01 * context.scene.vrtxa_sv_steps * self.direction
+
+        changes = []
+
+        for obj in objs:
+            color_attribute = obj.data.color_attributes.active_color
+            if color_attribute is None:
+                continue
+
+            bm = bmesh.from_edit_mesh(obj.data)
+            active_layer = bm.loops.layers.color.get(color_attribute.name)
+
+            if not active_layer:
+                continue
+
+            # Process based on selection mode
+            if bpy.context.tool_settings.mesh_select_mode[2]:  # Faces
+                for face in bm.faces:
+                    if face.select:
+                        for corner in face.loops:
+                            # Get current color (RGB)
+                            current_color = corner[active_layer][:3]
+
+                            # Convert to HSV
+                            h, s, v = colorsys.rgb_to_hsv(*current_color)
+
+                            # Adjust the appropriate component
+                            if self.mode == 'HUE':
+                                h = (h + adjust_value) % 1.0
+                            elif self.mode == 'SATURATION':
+                                s = max(0.0, min(1.0, s + adjust_value))
+                            elif self.mode == 'VALUE':
+                                v = max(0.0, min(1.0, v + adjust_value))
+
+                            # Convert back to RGB
+                            r, g, b = colorsys.hsv_to_rgb(h, s, v)
+
+                            # Update the color
+                            corner[active_layer][0] = r
+                            corner[active_layer][1] = g
+                            corner[active_layer][2] = b
+
+                            changes.append((obj.name, corner.vert.index, corner.index))
+
+            elif bpy.context.tool_settings.mesh_select_mode[0]:  # Vertices
+                for vert in bm.verts:
+                    if vert.select:
+                        for corner in vert.link_loops:
+                            # Get current color (RGB)
+                            current_color = corner[active_layer][:3]
+
+                            # Convert to HSV
+                            h, s, v = colorsys.rgb_to_hsv(*current_color)
+
+                            # Adjust the appropriate component
+                            if self.mode == 'HUE':
+                                h = (h + adjust_value) % 1.0
+                            elif self.mode == 'SATURATION':
+                                s = max(0.0, min(1.0, s + adjust_value))
+                            elif self.mode == 'VALUE':
+                                v = max(0.0, min(1.0, v + adjust_value))
+
+                            # Convert back to RGB
+                            r, g, b = colorsys.hsv_to_rgb(h, s, v)
+
+                            # Update the color
+                            corner[active_layer][0] = r
+                            corner[active_layer][1] = g
+                            corner[active_layer][2] = b
+
+                            changes.append((obj.name, corner.vert.index, corner.index))
+
+            elif bpy.context.tool_settings.mesh_select_mode[1]:  # Edges
+                for edge in bm.edges:
+                    if edge.select:
+                        for vert in edge.verts:
+                            for corner in vert.link_loops:
+                                # Get current color (RGB)
+                                current_color = corner[active_layer][:3]
+
+                                # Convert to HSV
+                                h, s, v = colorsys.rgb_to_hsv(*current_color)
+
+                                # Adjust the appropriate component
+                                if self.mode == 'HUE':
+                                    h = (h + adjust_value) % 1.0
+                                elif self.mode == 'SATURATION':
+                                    s = max(0.0, min(1.0, s + adjust_value))
+                                elif self.mode == 'VALUE':
+                                    v = max(0.0, min(1.0, v + adjust_value))
+
+                                # Convert back to RGB
+                                r, g, b = colorsys.hsv_to_rgb(h, s, v)
+
+                                # Update the color
+                                corner[active_layer][0] = r
+                                corner[active_layer][1] = g
+                                corner[active_layer][2] = b
+
+                                changes.append((obj.name, corner.vert.index, corner.index))
+
+            bmesh.update_edit_mesh(obj.data)
+
+        # Update the lookup for the new colors
+        if changes:
+            bpy.ops.vertx_artist.refresh('INVOKE_DEFAULT')
+
+        return {"FINISHED"}
+
+
 def register():
     bpy.types.Scene.vrtxa_static_color = bpy.props.FloatVectorProperty(
         name='static_color',
@@ -779,10 +929,68 @@ def register():
         default=True
     )
 
+    bpy.types.Scene.vrtxa_hsv_mode = bpy.props.EnumProperty(
+        name="HSV Mode",
+        items=[
+            ('HUE', 'Hue', 'Adjust hue'),
+            ('SATURATION', 'Saturation', 'Adjust saturation'),
+            ('VALUE', 'Value', 'Adjust value')
+        ],
+        default='HUE'
+    )
+
+    # Function to update amount when mode changes
+    def update_hsv_amount(self, context):
+        if self.vrtxa_hsv_mode == 'HUE':
+            self.vrtxa_hsv_amount = 1.0/360.0  # 1 degree in hue circle
+        else:
+            self.vrtxa_hsv_amount = 0.01  # 1% for saturation and value
+
+    # Register HSV mode with update callback
+    bpy.types.Scene.vrtxa_hsv_mode = bpy.props.EnumProperty(
+        name="HSV Mode",
+        items=[
+            ('HUE', 'Hue', 'Adjust hue'),
+            ('SATURATION', 'Saturation', 'Adjust saturation'),
+            ('VALUE', 'Value', 'Adjust value')
+        ],
+        default='HUE',
+        update=update_hsv_amount
+    )
+
+    # Separate step sizes for hue vs saturation/value
+    bpy.types.Scene.vrtxa_hue_steps = bpy.props.IntProperty(
+        name="Hue Steps",
+        description="Number of degrees to adjust",
+        default=1,
+        min=1,
+        max=360
+    )
+    
+    bpy.types.Scene.vrtxa_sv_steps = bpy.props.IntProperty(
+        name="Steps",
+        description="Number of percent steps to adjust",
+        default=1,
+        min=1,
+        max=100
+    )
+
+    # Keep the original property for compatibility but make it read-only
+    bpy.types.Scene.vrtxa_hsv_amount = bpy.props.FloatProperty(
+        name="HSV Amount",
+        description="Amount to adjust HSV value per step",
+        default=1.0/360.0,  # Start with hue default
+        min=0.001,
+        max=0.1,
+        precision=4
+    )
+
     bpy.utils.register_class(VRTXA_OT_ShowhideObjectColors)
     bpy.utils.register_class(VRTXA_OT_Checkpoint)
     bpy.utils.register_class(VRTXA_OT_Refresh)
     bpy.utils.register_class(VRTXA_OT_SelectByColor)
+
+    bpy.utils.register_class(VRTXA_OT_AdjustHSV)
 
 
 def unregister():
@@ -799,3 +1007,9 @@ def unregister():
     bpy.utils.unregister_class(VRTXA_OT_Checkpoint)
     bpy.utils.unregister_class(VRTXA_OT_Refresh)
     bpy.utils.unregister_class(VRTXA_OT_SelectByColor)
+
+    del bpy.types.Scene.vrtxa_hsv_mode
+    del bpy.types.Scene.vrtxa_hsv_amount
+    del bpy.types.Scene.vrtxa_hue_steps
+    del bpy.types.Scene.vrtxa_sv_steps
+    bpy.utils.unregister_class(VRTXA_OT_AdjustHSV)
