@@ -192,7 +192,7 @@ def display_object_colors(layout):
     box = layout.box()
     row = box.row()
     row.label(text='Adjust Object Colors', icon='GROUP_VCOL')
-    row.operator('vertx_artist.showhide_object_colors', text='', icon='HIDE_OFF' if bpy.context.scene.vrtxa_show_object_colors else 253, emboss=False)
+    row.operator('vertx_artist.showhide_object_colors', text='', icon='HIDE_OFF' if bpy.context.scene.vrtxa_show_object_colors else 'HIDE_ON', emboss=False)
 
     if bpy.context.scene.vrtxa_show_object_colors:
         row = row.row(align=True)
@@ -360,7 +360,7 @@ def prepend_object_tool_panel(self, context):
         box = self.layout.box()
         row = box.row()
         row.label(text='Adjust Object Colors', icon='GROUP_VCOL')
-        row.operator('vertx_artist.showhide_object_colors', text='', icon='HIDE_OFF' if bpy.context.scene.vrtxa_show_object_colors else 253, emboss=False, depress=True)
+        row.operator('vertx_artist.showhide_object_colors', text='', icon='HIDE_OFF' if bpy.context.scene.vrtxa_show_object_colors else 'HIDE_ON', emboss=False, depress=True)
         self.layout.separator(factor=0.5)
 
 
@@ -426,7 +426,7 @@ def unregister():
         bpy.types.VIEW3D_PT_tools_active.remove(prepend_tool_panel)
         bpy.types.VIEW3D_PT_tools_active.remove(prepend_object_tool_panel)
     except:
-        print('Could not remove tool panel')
+        pass
 
     # Always try to unregister N panel classes regardless of current setting
     try:
@@ -436,4 +436,4 @@ def unregister():
         bpy.utils.unregister_class(VRTXA_PT_VertexTools)
         bpy.utils.unregister_class(VRTXA_PT_AlphaGradient)
     except:
-        print('Could not unregister N panel')
+        pass

@@ -242,7 +242,7 @@ class VRTXA_UL_DisplayModifications(bpy.types.UIList):
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         row = layout.row()
-        op = row.operator('vertx_artist.toggle_color_transformation_visibility', text='', icon='HIDE_OFF' if item.include else 253, emboss=False)
+        op = row.operator('vertx_artist.toggle_color_transformation_visibility', text='', icon='HIDE_OFF' if item.include else 'HIDE_ON', emboss=False)
         op.modification_index = index
         row.prop(item, 'blend_type', text='')
         row.prop(item, 'blend_layer', text='')
