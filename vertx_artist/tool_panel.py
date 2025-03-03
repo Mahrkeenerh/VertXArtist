@@ -95,61 +95,58 @@ class VRTXA_PT_HSVAdjust(bpy.types.Panel):
         scene = context.scene
 
         # Hue adjustment
-        box = layout.box()
-        row = box.row(align=True)
-        row.label(text="Hue")
+        row = layout.row(align=True)
+        row.scale_x = 1.5
+        row.scale_y = 1.25
+        row.label(text="Hue:")
 
-        row = box.row(align=True)
-        row.prop(scene, "vrtxa_hue_change", text="Degrees")
-
-        row = box.row(align=True)
         op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_LEFT')
-        op.hue_change = -scene.vrtxa_hue_change
+        op.hue_change = -bpy.context.scene.vrtxa_hue_change
         op.saturation_change = 0
         op.value_change = 0
 
+        row.prop(bpy.context.scene, "vrtxa_hue_change", text="Degrees")
+
         op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_RIGHT')
-        op.hue_change = scene.vrtxa_hue_change
+        op.hue_change = bpy.context.scene.vrtxa_hue_change
         op.saturation_change = 0
         op.value_change = 0
 
         # Saturation adjustment
-        box = layout.box()
-        row = box.row(align=True)
-        row.label(text="Saturation")
+        row = layout.row(align=True)
+        row.scale_x = 1.5
+        row.scale_y = 1.25
+        row.label(text="Saturation:")
 
-        row = box.row(align=True)
-        row.prop(scene, "vrtxa_saturation_change", text="Percent")
-
-        row = box.row(align=True)
         op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_DOWN')
         op.hue_change = 0
-        op.saturation_change = -scene.vrtxa_saturation_change
+        op.saturation_change = -bpy.context.scene.vrtxa_saturation_change
         op.value_change = 0
+
+        row.prop(bpy.context.scene, "vrtxa_saturation_change", text="Percent")
 
         op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_UP')
         op.hue_change = 0
-        op.saturation_change = scene.vrtxa_saturation_change
+        op.saturation_change = bpy.context.scene.vrtxa_saturation_change
         op.value_change = 0
 
         # Value adjustment
-        box = layout.box()
-        row = box.row(align=True)
-        row.label(text="Value")
+        row = layout.row(align=True)
+        row.scale_x = 1.5
+        row.scale_y = 1.25
+        row.label(text="Value:")
 
-        row = box.row(align=True)
-        row.prop(scene, "vrtxa_value_change", text="Percent")
-
-        row = box.row(align=True)
         op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_DOWN')
         op.hue_change = 0
         op.saturation_change = 0
-        op.value_change = -scene.vrtxa_value_change
+        op.value_change = -bpy.context.scene.vrtxa_value_change
+
+        row.prop(bpy.context.scene, "vrtxa_value_change", text="Percent")
 
         op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_UP')
         op.hue_change = 0
         op.saturation_change = 0
-        op.value_change = scene.vrtxa_value_change
+        op.value_change = bpy.context.scene.vrtxa_value_change
 
 
 # Object colors panel
@@ -269,7 +266,7 @@ def display_hsv_panel(layout):
 
     # Hue adjustment
     row = box.row(align=True)
-    row.scale_x = 1.25
+    row.scale_x = 1.5
     row.scale_y = 1.25
     row.label(text="Hue:")
 
@@ -287,7 +284,7 @@ def display_hsv_panel(layout):
 
     # Saturation adjustment
     row = box.row(align=True)
-    row.scale_x = 1.25
+    row.scale_x = 1.5
     row.scale_y = 1.25
     row.label(text="Saturation:")
 
@@ -305,7 +302,7 @@ def display_hsv_panel(layout):
 
     # Value adjustment
     row = box.row(align=True)
-    row.scale_x = 1.25
+    row.scale_x = 1.5
     row.scale_y = 1.25
     row.label(text="Value:")
 
