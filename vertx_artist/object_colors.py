@@ -754,19 +754,21 @@ class VRTXA_OT_AdjustHSV(bpy.types.Operator):
     bl_description = "Adjust HSV values for selected faces"
     bl_options = {"REGISTER", "UNDO"}
 
-    mode: bpy.props.EnumProperty(
-        name="Mode",
-        items=[
-            ('HUE', 'Hue', 'Adjust hue'),
-            ('SATURATION', 'Saturation', 'Adjust saturation'),
-            ('VALUE', 'Value', 'Adjust value')
-        ],
-        default='HUE'
+    # Direct change values for each component
+    hue_change: bpy.props.IntProperty(
+        name="Hue Change",
+        description="Value to adjust hue by (in degrees)",
+        default=0
     )
-    direction: bpy.props.IntProperty(
-        name="Direction",
-        description="Direction to adjust (1 or -1)",
-        default=1
+    saturation_change: bpy.props.IntProperty(
+        name="Saturation Change",
+        description="Value to adjust saturation by (in percent)",
+        default=0
+    )
+    value_change: bpy.props.IntProperty(
+        name="Value Change",
+        description="Value to adjust value by (in percent)",
+        default=0
     )
 
     @classmethod
@@ -782,13 +784,10 @@ class VRTXA_OT_AdjustHSV(bpy.types.Operator):
         # Ignore non-mesh objects
         objs = [x for x in objs if x.type == "MESH"]
 
-        # Set the adjustment amount based on mode and steps
-        if self.mode == 'HUE':
-            # 1/360 per step (in degrees on color wheel)
-            adjust_value = (1.0/360.0) * context.scene.vrtxa_hue_steps * self.direction
-        else:
-            # 1/100 per step (1% increments for saturation and value)
-            adjust_value = 0.01 * context.scene.vrtxa_sv_steps * self.direction
+        # Convert to normalized values
+        hue_adjust = self.hue_change / 360.0  # Convert degrees to 0-1 range
+        saturation_adjust = self.saturation_change / 100.0  # Convert percentage to 0-1 range
+        value_adjust = self.value_change / 100.0  # Convert percentage to 0-1 range
 
         changes = []
 
@@ -814,13 +813,10 @@ class VRTXA_OT_AdjustHSV(bpy.types.Operator):
                             # Convert to HSV
                             h, s, v = colorsys.rgb_to_hsv(*current_color)
 
-                            # Adjust the appropriate component
-                            if self.mode == 'HUE':
-                                h = (h + adjust_value) % 1.0
-                            elif self.mode == 'SATURATION':
-                                s = max(0.0, min(1.0, s + adjust_value))
-                            elif self.mode == 'VALUE':
-                                v = max(0.0, min(1.0, v + adjust_value))
+                            # Adjust all components
+                            h = (h + hue_adjust) % 1.0
+                            s = max(0.0, min(1.0, s + saturation_adjust))
+                            v = max(0.0, min(1.0, v + value_adjust))
 
                             # Convert back to RGB
                             r, g, b = colorsys.hsv_to_rgb(h, s, v)
@@ -842,13 +838,10 @@ class VRTXA_OT_AdjustHSV(bpy.types.Operator):
                             # Convert to HSV
                             h, s, v = colorsys.rgb_to_hsv(*current_color)
 
-                            # Adjust the appropriate component
-                            if self.mode == 'HUE':
-                                h = (h + adjust_value) % 1.0
-                            elif self.mode == 'SATURATION':
-                                s = max(0.0, min(1.0, s + adjust_value))
-                            elif self.mode == 'VALUE':
-                                v = max(0.0, min(1.0, v + adjust_value))
+                            # Adjust all components
+                            h = (h + hue_adjust) % 1.0
+                            s = max(0.0, min(1.0, s + saturation_adjust))
+                            v = max(0.0, min(1.0, v + value_adjust))
 
                             # Convert back to RGB
                             r, g, b = colorsys.hsv_to_rgb(h, s, v)
@@ -871,13 +864,10 @@ class VRTXA_OT_AdjustHSV(bpy.types.Operator):
                                 # Convert to HSV
                                 h, s, v = colorsys.rgb_to_hsv(*current_color)
 
-                                # Adjust the appropriate component
-                                if self.mode == 'HUE':
-                                    h = (h + adjust_value) % 1.0
-                                elif self.mode == 'SATURATION':
-                                    s = max(0.0, min(1.0, s + adjust_value))
-                                elif self.mode == 'VALUE':
-                                    v = max(0.0, min(1.0, v + adjust_value))
+                                # Adjust all components
+                                h = (h + hue_adjust) % 1.0
+                                s = max(0.0, min(1.0, s + saturation_adjust))
+                                v = max(0.0, min(1.0, v + value_adjust))
 
                                 # Convert back to RGB
                                 r, g, b = colorsys.hsv_to_rgb(h, s, v)
@@ -929,68 +919,33 @@ def register():
         default=True
     )
 
-    bpy.types.Scene.vrtxa_hsv_mode = bpy.props.EnumProperty(
-        name="HSV Mode",
-        items=[
-            ('HUE', 'Hue', 'Adjust hue'),
-            ('SATURATION', 'Saturation', 'Adjust saturation'),
-            ('VALUE', 'Value', 'Adjust value')
-        ],
-        default='HUE'
-    )
-
-    # Function to update amount when mode changes
-    def update_hsv_amount(self, context):
-        if self.vrtxa_hsv_mode == 'HUE':
-            self.vrtxa_hsv_amount = 1.0/360.0  # 1 degree in hue circle
-        else:
-            self.vrtxa_hsv_amount = 0.01  # 1% for saturation and value
-
-    # Register HSV mode with update callback
-    bpy.types.Scene.vrtxa_hsv_mode = bpy.props.EnumProperty(
-        name="HSV Mode",
-        items=[
-            ('HUE', 'Hue', 'Adjust hue'),
-            ('SATURATION', 'Saturation', 'Adjust saturation'),
-            ('VALUE', 'Value', 'Adjust value')
-        ],
-        default='HUE',
-        update=update_hsv_amount
-    )
-
-    # Separate step sizes for hue vs saturation/value
-    bpy.types.Scene.vrtxa_hue_steps = bpy.props.IntProperty(
-        name="Hue Steps",
-        description="Number of degrees to adjust",
+    bpy.types.Scene.vrtxa_hue_change = bpy.props.IntProperty(
+        name="Hue",
+        description="Degrees to change hue by",
         default=1,
         min=1,
         max=360
-    )
-    
-    bpy.types.Scene.vrtxa_sv_steps = bpy.props.IntProperty(
-        name="Steps",
-        description="Number of percent steps to adjust",
+    )    
+    bpy.types.Scene.vrtxa_saturation_change = bpy.props.IntProperty(
+        name="Saturation",
+        description="Percentage to change saturation by",
         default=1,
         min=1,
         max=100
     )
-
-    # Keep the original property for compatibility but make it read-only
-    bpy.types.Scene.vrtxa_hsv_amount = bpy.props.FloatProperty(
-        name="HSV Amount",
-        description="Amount to adjust HSV value per step",
-        default=1.0/360.0,  # Start with hue default
-        min=0.001,
-        max=0.1,
-        precision=4
+    bpy.types.Scene.vrtxa_value_change = bpy.props.IntProperty(
+        name="Value",
+        description="Percentage to change value by",
+        default=1,
+        min=1,
+        max=100
     )
+    bpy.utils.register_class(VRTXA_OT_AdjustHSV)
 
     bpy.utils.register_class(VRTXA_OT_ShowhideObjectColors)
     bpy.utils.register_class(VRTXA_OT_Checkpoint)
     bpy.utils.register_class(VRTXA_OT_Refresh)
     bpy.utils.register_class(VRTXA_OT_SelectByColor)
-
-    bpy.utils.register_class(VRTXA_OT_AdjustHSV)
 
 
 def unregister():
@@ -1008,8 +963,7 @@ def unregister():
     bpy.utils.unregister_class(VRTXA_OT_Refresh)
     bpy.utils.unregister_class(VRTXA_OT_SelectByColor)
 
-    del bpy.types.Scene.vrtxa_hsv_mode
-    del bpy.types.Scene.vrtxa_hsv_amount
-    del bpy.types.Scene.vrtxa_hue_steps
-    del bpy.types.Scene.vrtxa_sv_steps
+    del bpy.types.Scene.vrtxa_hue_change
+    del bpy.types.Scene.vrtxa_saturation_change
+    del bpy.types.Scene.vrtxa_value_change
     bpy.utils.unregister_class(VRTXA_OT_AdjustHSV)

@@ -84,7 +84,7 @@ class VRTXA_PT_HSVAdjust(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "VertX Artist"
-    bl_order = 2 
+    bl_order = 2
 
     @classmethod
     def poll(cls, context):
@@ -94,34 +94,62 @@ class VRTXA_PT_HSVAdjust(bpy.types.Panel):
         layout = self.layout
         scene = context.scene
 
-        row = layout.row()
-        row.prop(scene, "vrtxa_hsv_mode", text="Mode", expand=True)
+        # Hue adjustment
+        box = layout.box()
+        row = box.row(align=True)
+        row.label(text="Hue")
 
-        row = layout.row()
-        arr_row = row.row(align=True)
-        # Show appropriate step control based on mode
-        if scene.vrtxa_hsv_mode == 'HUE':
-            row.prop(scene, "vrtxa_hue_steps", text="Degrees")
-        else:
-            row.prop(scene, "vrtxa_sv_steps", text="Percent")
-                
-        # Use directional icons based on the selected mode
-        if scene.vrtxa_hsv_mode == 'HUE':
-            op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_LEFT')
-            op.direction = -1
-            op.mode = scene.vrtxa_hsv_mode
+        row = box.row(align=True)
+        row.prop(scene, "vrtxa_hue_change", text="Degrees")
 
-            op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_RIGHT')
-            op.direction = 1
-            op.mode = scene.vrtxa_hsv_mode
-        else:
-            op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_UP')
-            op.direction = 1
-            op.mode = scene.vrtxa_hsv_mode
+        row = box.row(align=True)
+        op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_LEFT')
+        op.hue_change = -scene.vrtxa_hue_change
+        op.saturation_change = 0
+        op.value_change = 0
 
-            op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_DOWN')
-            op.direction = -1
-            op.mode = scene.vrtxa_hsv_mode
+        op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_RIGHT')
+        op.hue_change = scene.vrtxa_hue_change
+        op.saturation_change = 0
+        op.value_change = 0
+
+        # Saturation adjustment
+        box = layout.box()
+        row = box.row(align=True)
+        row.label(text="Saturation")
+
+        row = box.row(align=True)
+        row.prop(scene, "vrtxa_saturation_change", text="Percent")
+
+        row = box.row(align=True)
+        op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_DOWN')
+        op.hue_change = 0
+        op.saturation_change = -scene.vrtxa_saturation_change
+        op.value_change = 0
+
+        op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_UP')
+        op.hue_change = 0
+        op.saturation_change = scene.vrtxa_saturation_change
+        op.value_change = 0
+
+        # Value adjustment
+        box = layout.box()
+        row = box.row(align=True)
+        row.label(text="Value")
+
+        row = box.row(align=True)
+        row.prop(scene, "vrtxa_value_change", text="Percent")
+
+        row = box.row(align=True)
+        op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_DOWN')
+        op.hue_change = 0
+        op.saturation_change = 0
+        op.value_change = -scene.vrtxa_value_change
+
+        op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_UP')
+        op.hue_change = 0
+        op.saturation_change = 0
+        op.value_change = scene.vrtxa_value_change
 
 
 # Object colors panel
@@ -239,36 +267,59 @@ def display_hsv_panel(layout):
     row = box.row()
     row.label(text='HSV Adjust', icon='GROUP_VCOL')
 
-    scene = bpy.context.scene
+    # Hue adjustment
+    row = box.row(align=True)
+    row.scale_x = 1.25
+    row.scale_y = 1.25
+    row.label(text="Hue:")
 
-    row = box.row()
-    row.prop(scene, "vrtxa_hsv_mode", text="Mode", expand=True)
+    op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_LEFT')
+    op.hue_change = -bpy.context.scene.vrtxa_hue_change
+    op.saturation_change = 0
+    op.value_change = 0
 
-    row = box.row()
-    arr_row = row.row(align=True)
-    # Show appropriate step control based on mode
-    if scene.vrtxa_hsv_mode == 'HUE':
-        row.prop(scene, "vrtxa_hue_steps", text="Degrees")
-    else:
-        row.prop(scene, "vrtxa_sv_steps", text="Percent")
+    row.prop(bpy.context.scene, "vrtxa_hue_change", text="Degrees")
 
-    # Use directional icons based on the selected mode
-    if scene.vrtxa_hsv_mode == 'HUE':
-        op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_LEFT')
-        op.direction = -1
-        op.mode = scene.vrtxa_hsv_mode
+    op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_RIGHT')
+    op.hue_change = bpy.context.scene.vrtxa_hue_change
+    op.saturation_change = 0
+    op.value_change = 0
 
-        op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_RIGHT')
-        op.direction = 1
-        op.mode = scene.vrtxa_hsv_mode
-    else:
-        op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_UP')
-        op.direction = 1
-        op.mode = scene.vrtxa_hsv_mode
+    # Saturation adjustment
+    row = box.row(align=True)
+    row.scale_x = 1.25
+    row.scale_y = 1.25
+    row.label(text="Saturation:")
 
-        op = arr_row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_DOWN')
-        op.direction = -1
-        op.mode = scene.vrtxa_hsv_mode
+    op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_DOWN')
+    op.hue_change = 0
+    op.saturation_change = -bpy.context.scene.vrtxa_saturation_change
+    op.value_change = 0
+
+    row.prop(bpy.context.scene, "vrtxa_saturation_change", text="Percent")
+
+    op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_UP')
+    op.hue_change = 0
+    op.saturation_change = bpy.context.scene.vrtxa_saturation_change
+    op.value_change = 0
+
+    # Value adjustment
+    row = box.row(align=True)
+    row.scale_x = 1.25
+    row.scale_y = 1.25
+    row.label(text="Value:")
+
+    op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_DOWN')
+    op.hue_change = 0
+    op.saturation_change = 0
+    op.value_change = -bpy.context.scene.vrtxa_value_change
+
+    row.prop(bpy.context.scene, "vrtxa_value_change", text="Percent")
+
+    op = row.operator('vertx_artist.adjust_hsv', text="", icon='TRIA_UP')
+    op.hue_change = 0
+    op.saturation_change = 0
+    op.value_change = bpy.context.scene.vrtxa_value_change
 
 
 def display_object_colors(layout):
