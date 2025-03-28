@@ -620,22 +620,32 @@ class VRTXA_OT_SelectByColor(bpy.types.Operator):
     bl_label = "Select By Color"
     bl_description = "Select only the vertices/polygons with the specified color, depending on the selection tolerance"
     bl_options = {"REGISTER", "UNDO"}
+    select_color: bpy.props.FloatVectorProperty(
+        name='select_color',
+        size=3, default=(0.0, 0.0, 0.0),
+        subtype='COLOR_GAMMA',
+        min=0.0, max=1.0
+    )
     selection_tolerance: bpy.props.FloatProperty(
         name='selection_tolerance',
         default=0.0, precision=2,
         min=0.0, max=1.0
     )
-    select_color: bpy.props.FloatVectorProperty(
-        name='select_color',
-        options={'HIDDEN'},
-        size=3, default=(0.0, 0.0, 0.0),
-        subtype='COLOR_GAMMA',
-        min=0.0, max=1.0
-    )
     select_color_idx: bpy.props.IntProperty(name='select_color_idx', options={'HIDDEN'})
+    additive: bpy.props.BoolProperty(
+        name='additive',
+        description='Add to current selection instead of replacing it',
+        default=False
+    )
     ignore_hue: bpy.props.BoolProperty(name='ignore_hue', default=False)
     ignore_saturation: bpy.props.BoolProperty(name='ignore_saturation', default=False)
     ignore_value: bpy.props.BoolProperty(name='ignore_value', default=False)
+    hsv_tolerance: bpy.props.FloatProperty(
+        name='hsv_tolerance',
+        description='Distance tolerance for HSV comparison (0 means exact match)',
+        default=0.0001, precision=2, step=1,
+        min=0.0, max=1.0
+    )
 
     def execute(self, context):
         ignore_hsv = (self.ignore_hue, self.ignore_saturation, self.ignore_value)
@@ -661,10 +671,10 @@ class VRTXA_OT_SelectByColor(bpy.types.Operator):
         if self.select_color_idx == -1:
             return {"FINISHED"}
 
-        self.select_color_idx = obj_to_lookup_col_idx_mapping[self.select_color_idx]
+        select_color_idx = obj_to_lookup_col_idx_mapping[self.select_color_idx]
 
-        # Deselect all
-        if bpy.context.mode == "EDIT_MESH":
+        # Deselect all (only if not in additive mode)
+        if bpy.context.mode == "EDIT_MESH" and not self.additive:
             for obj in objs:
                 bm = bmesh.from_edit_mesh(obj.data)
                 for vert in bm.verts:
@@ -677,34 +687,59 @@ class VRTXA_OT_SelectByColor(bpy.types.Operator):
                 bm.select_flush_mode()
                 bmesh.update_edit_mesh(obj.data)
 
-        def compare_ignore_color(ignore, hsv1, hsv2):
-            return (
-                (ignore[0] or hsv1[0] == hsv2[0]) and
-                (ignore[1] or hsv1[1] == hsv2[1]) and
-                (ignore[2] or hsv1[2] == hsv2[2])
-            )
+        def is_color_match(hsv1, hsv2, ignore, tolerance):
+            """
+            Unified function to determine if two colors match based on HSV tolerance and ignore flags.
+            Returns True if colors match within tolerance or if ignored channels match.
+            """
+            # Check hue - account for its circular nature
+            if not ignore[0]:
+                h_diff = abs(hsv1[0] - hsv2[0])
+                h_dist = min(h_diff, 1.0 - h_diff)
+                if h_dist > tolerance:
+                    return False
+
+            # Check saturation
+            if not ignore[1]:
+                s_dist = abs(hsv1[1] - hsv2[1])
+                if s_dist > tolerance:
+                    return False
+
+            # Check value
+            if not ignore[2]:
+                v_dist = abs(hsv1[2] - hsv2[2])
+                if v_dist > tolerance:
+                    return False
+
+            return True
 
         # vert mode or edge mode
         if bpy.context.tool_settings.mesh_select_mode[0] or bpy.context.tool_settings.mesh_select_mode[1]:
-            for obj_name in color_corner_lookup[self.select_color_idx][1]:
+            select_color_hsv = colorsys.rgb_to_hsv(*self.select_color)
+
+            for obj_name in color_corner_lookup[select_color_idx][1]:
+                if obj_name not in obj_name_map:
+                    continue
+
                 obj = obj_name_map[obj_name]
                 bm = bmesh.from_edit_mesh(obj.data)
-
                 bm.verts.ensure_lookup_table()
-                for vert_idx in color_corner_lookup[self.select_color_idx][1][obj_name]:
-                    if len(color_corner_lookup[self.select_color_idx][1][obj_name][vert_idx]) / len(bm.verts[vert_idx].link_loops) >= (1 - self.selection_tolerance):
-                        bm.verts[vert_idx].select = True
 
-                # if ignore_hsv
-                if any(ignore_hsv):
-                    for col_idx, color in enumerate(bpy.context.scene.vrtxa_object_colors):
-                        if col_idx == self.select_color_idx:
+                if self.hsv_tolerance == 0:
+                    for vert_idx in color_corner_lookup[select_color_idx][1][obj_name]:
+                        if len(color_corner_lookup[select_color_idx][1][obj_name][vert_idx]) / len(bm.verts[vert_idx].link_loops) >= (1 - self.selection_tolerance):
+                            bm.verts[vert_idx].select = True
+
+                # Process colors based on HSV distance and ignore flags
+                if any(ignore_hsv) or self.hsv_tolerance > 0:
+                    for col_idx in color_corner_lookup:
+                        if obj_name not in color_corner_lookup[col_idx][1]:
                             continue
 
-                        select_color_hsv = colorsys.rgb_to_hsv(*self.select_color)
-                        color_hsv = colorsys.rgb_to_hsv(*color.color)
+                        color_hsv = colorsys.rgb_to_hsv(*color_corner_lookup[col_idx][0])
 
-                        if compare_ignore_color(ignore_hsv, select_color_hsv, color_hsv):
+                        # Check if the color matches using our unified function
+                        if is_color_match(select_color_hsv, color_hsv, ignore_hsv, self.hsv_tolerance):
                             for vert_idx in color_corner_lookup[col_idx][1][obj_name]:
                                 bm.verts[vert_idx].select = True
 
@@ -718,32 +753,43 @@ class VRTXA_OT_SelectByColor(bpy.types.Operator):
 
         # face mode
         if bpy.context.tool_settings.mesh_select_mode[2]:
-            for obj_name in color_corner_lookup[self.select_color_idx][1]:
+            select_color_hsv = colorsys.rgb_to_hsv(*self.select_color)
+
+            # Build a list of color indices that match the criteria.
+            matching_col_idxs = []
+            for col_idx, col_data in color_corner_lookup.items():
+                color_rgb = col_data[0]
+                color_hsv = colorsys.rgb_to_hsv(*color_rgb)
+                if is_color_match(select_color_hsv, color_hsv, ignore_hsv, self.hsv_tolerance):
+                    matching_col_idxs.append(col_idx)
+
+            # Loop over objects that contain the originally selected lookup color.
+            for obj_name in color_corner_lookup[select_color_idx][1]:
+                if obj_name not in obj_name_map:
+                    continue
+
                 obj = obj_name_map[obj_name]
                 bm = bmesh.from_edit_mesh(obj.data)
-
                 bm.faces.ensure_lookup_table()
+
                 for face in bm.faces:
-                    loops_in_face = [x for x in face.loops if x.vert.index in color_corner_lookup[self.select_color_idx][1][obj_name]]
-                    if len(loops_in_face) / len(face.loops) >= (1 - self.selection_tolerance):
+                    match_count = 0
+                    for loop in face.loops:
+                        # For each loop, check against all matching colors.
+                        for col_idx in matching_col_idxs:
+                            obj_lookup = color_corner_lookup[col_idx][1]
+                            if obj_name in obj_lookup:
+                                # Check if this loop's vertex is registered and that the specific loop index is present.
+                                if loop.vert.index in obj_lookup[obj_name]:
+                                    if loop.index in obj_lookup[obj_name][loop.vert.index]:
+                                        match_count += 1
+                                        break  # Only count one match per loop.
+                    if face.loops and (match_count / len(face.loops)) >= (1 - self.selection_tolerance):
                         face.select = True
-
-                # if ignore_hsv
-                if any(ignore_hsv):
-                    for col_idx, color in enumerate(bpy.context.scene.vrtxa_object_colors):
-                        if col_idx == self.select_color_idx:
-                            continue
-
-                        select_color_hsv = colorsys.rgb_to_hsv(*self.select_color)
-                        color_hsv = colorsys.rgb_to_hsv(*color.color)
-
-                        if compare_ignore_color(ignore_hsv, select_color_hsv, color_hsv):
-                            for face in bm.faces:
-                                face.select = True
 
                 bmesh.update_edit_mesh(obj.data)
 
-        bpy.context.scene.vrtxa_active_color_index = lookup_to_obj_col_idx_mapping[self.select_color_idx]
+        bpy.context.scene.vrtxa_active_color_index = lookup_to_obj_col_idx_mapping[select_color_idx]
 
         return {"FINISHED"}
 
