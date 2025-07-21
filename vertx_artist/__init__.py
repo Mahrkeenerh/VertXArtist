@@ -32,7 +32,7 @@ bl_info = {
     "doc_url": "https://github.com/Mahrkeenerh/VertXArtist",
     "description": "Vertex coloring tool using Color Attributes",
     "blender": (3, 4, 0),
-    "version": (3, 5, 1),
+    "version": (3, 5, 2),
     "location": "Edit Mode",
     "category": "Paint",
 }
