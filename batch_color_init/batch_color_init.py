@@ -30,7 +30,7 @@ class BATCH_COLOR_INIT_OT_init_colors(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.mode == 'OBJECT' and len(context.selected_objects) > 0
+        return len(context.selected_objects) > 0
 
     def invoke(self, context, event):
         # Show popup dialog
@@ -112,25 +112,56 @@ def draw_batch_init_ui(self, context):
 
 def register():
     bpy.utils.register_class(BATCH_COLOR_INIT_OT_init_colors)
-    
-    # Try to append to VertX Artist panel if it exists
+
+    # Try to append to VertX Artist panels if they exist
     try:
         from vertx_artist.layers import VRTXA_PT_ColorLayers
-        # Add our UI to the beginning of the VertX Artist panel
-        VRTXA_PT_ColorLayers.prepend(draw_batch_init_ui)
-        print("Batch Color Init: Successfully integrated with VertX Artist")
+
+        # Add our UI to the end of the VertX Artist color layers panel
+        VRTXA_PT_ColorLayers.append(draw_batch_init_ui)
+        print(
+            "Batch Color Init: Successfully integrated with VertX Artist Color Layers panel"
+        )
     except ImportError:
-        print("VertX Artist not found - Batch Color Init requires VertX Artist addon to function properly")
+        print("VertX Artist Color Layers panel not found")
+
+    try:
+        from vertx_artist.tool_panel import VRTXA_PT_Header
+
+        # Add our UI to the end of the VertX Artist header panel
+        VRTXA_PT_Header.append(draw_batch_init_ui)
+        print(
+            "Batch Color Init: Successfully integrated with VertX Artist Header panel"
+        )
+    except ImportError:
+        print("VertX Artist Header panel not found")
+
+    # Add our UI directly to the tool panel
+    bpy.types.VIEW3D_PT_tools_active.prepend(draw_batch_init_ui)
+    print("Batch Color Init: Successfully integrated with VIEW3D_PT_tools_active")
 
 
 def unregister():
     bpy.utils.unregister_class(BATCH_COLOR_INIT_OT_init_colors)
-    
-    # Remove from VertX Artist panel if it was added
+
+    # Remove from VertX Artist panels if they were added
     try:
         from vertx_artist.layers import VRTXA_PT_ColorLayers
         VRTXA_PT_ColorLayers.remove(draw_batch_init_ui)
     except (ImportError, ValueError):
+        pass
+
+    try:
+        from vertx_artist.tool_panel import VRTXA_PT_Header
+
+        VRTXA_PT_Header.remove(draw_batch_init_ui)
+    except (ImportError, ValueError):
+        pass
+
+    # Remove from tool panel
+    try:
+        bpy.types.VIEW3D_PT_tools_active.remove(draw_batch_init_ui)
+    except ValueError:
         pass
 
 
