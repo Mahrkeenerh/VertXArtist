@@ -28,7 +28,7 @@ Standard Blender addon installation:
 
 Perfect for game engines where RGB stores color and Alpha stores data (roughness, metallic, AO, etc.)
 
-![Color Layers](/docu/layers.gif)
+![Color Layers](/docu/layers_.gif)
 
 - Separate RGBA into individual channels (R, G, B, A, RGB, RG, RB, GB, RGBA)
 - Paint directly on specific channels
@@ -100,7 +100,7 @@ Non-destructive color adjustments with preview
 
 Create fade effects, useful for asset shading
 
-![Alpha Gradients](/docu/alpha_gradients.gif)
+![Alpha Gradients](/docu/alpha_gradients_.gif)
 
 - Create alpha gradients
 - Set Negative/Positive axis values for gradient range
