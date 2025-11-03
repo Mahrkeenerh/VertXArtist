@@ -353,7 +353,13 @@ class VRTXA_OT_SynchronizeLayers(bpy.types.Operator):
 
 @persistent
 def refresh_layers(dummy):
-    if bpy.context.object is  None:
+    if bpy.context.object is None:
+        return
+
+    # Only process objects that support color attributes
+    if bpy.context.object.data is None or not hasattr(
+        bpy.context.object.data, "color_attributes"
+    ):
         return
 
     # same size
@@ -406,7 +412,12 @@ class VRTXA_PT_ColorLayers(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return bpy.context.object is not None
+        # Only show panel for objects that support color attributes (meshes, curves with geometry)
+        return (
+            bpy.context.object is not None
+            and bpy.context.object.data is not None
+            and hasattr(bpy.context.object.data, "color_attributes")
+        )
 
     def draw(self, context):
         layout = self.layout

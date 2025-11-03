@@ -89,6 +89,105 @@ obj_to_lookup_col_idx_mapping = []
 corner_color_lookup = {}
 
 
+def validate_color_data_fast(obj):
+    """
+    Fast validation check for color attribute and data consistency.
+    Returns (is_valid, error_message).
+    Checks for common issues without expensive deep validation.
+    """
+    # Check if object exists
+    if obj is None:
+        return False, "No active object"
+
+    # Check if object is a mesh
+    if obj.type != "MESH":
+        return False, "Object is not a mesh"
+
+    # Check if color attribute exists
+    color_attribute = obj.data.color_attributes.active_color
+    if color_attribute is None:
+        return False, "No active color attribute"
+
+    # Check if color attribute name exists in the layer data
+    try:
+        if obj.data.color_attributes.active_color_index >= len(
+            obj.data.color_attributes
+        ):
+            return False, "Color attribute index out of range"
+    except (AttributeError, IndexError):
+        return False, "Invalid color attribute configuration"
+
+    # Check if the color attribute has proper domain (should be CORNER for vertex colors)
+    try:
+        if color_attribute.domain not in ["CORNER", "POINT"]:
+            return (
+                False,
+                f"Unsupported color attribute domain: {color_attribute.domain}",
+            )
+    except AttributeError:
+        pass  # If domain doesn't exist, skip this check
+
+    # Check if layers data is properly configured
+    try:
+        if not hasattr(obj, "vrtxa_layers"):
+            return False, "Object missing vrtxa_layers property"
+
+        # Verify the active color attribute index is valid for layers
+        if obj.data.color_attributes.active_color_index >= len(obj.vrtxa_layers):
+            return False, "Layer configuration mismatch with color attributes"
+    except (AttributeError, IndexError):
+        return False, "Invalid layer configuration"
+
+    # Check if lookups are empty - this means data needs to be refreshed
+    # If we're in edit mode and lookups are empty, we need to refresh first
+    if bpy.context.mode == "EDIT_MESH" and not color_corner_lookup:
+        return False, "Color lookup data not initialized (run Refresh first)"
+
+    # Check for stale data - if lookup has data but current object is not in it
+    # This catches when you switch to a different object without refreshing
+    if color_corner_lookup and bpy.context.mode == "EDIT_MESH":
+        obj_names_in_color_lookup = set()
+        for col_idx, (color, obj_dict) in color_corner_lookup.items():
+            obj_names_in_color_lookup.update(obj_dict.keys())
+
+        if obj_names_in_color_lookup and obj.name not in obj_names_in_color_lookup:
+            return False, "Color data is for different object (run Refresh first)"
+
+    # Fast check for outdated data - compare lookup data size vs actual mesh data
+    if corner_color_lookup:
+        # Check if object name in lookup still matches existing objects
+        obj_names_in_lookup = set()
+        for obj_name, _ in corner_color_lookup.keys():
+            obj_names_in_lookup.add(obj_name)
+
+        # Quick check: if object is in lookup, verify basic size consistency
+        if obj.name in obj_names_in_lookup:
+            # Count expected corners for this object in lookup
+            corner_count_in_lookup = sum(
+                1 for key in corner_color_lookup.keys() if key[0] == obj.name
+            )
+            actual_corner_count = len(obj.data.loops)
+
+            # If sizes differ significantly, data is likely outdated
+            if (
+                corner_count_in_lookup > 0
+                and actual_corner_count != corner_count_in_lookup
+            ):
+                return False, "Color data outdated (mesh topology changed)"
+
+    # Check if color_corner_lookup contains references to objects that don't exist
+    if color_corner_lookup:
+        scene_obj_names = set(
+            o.name for o in bpy.context.scene.objects if o.type == "MESH"
+        )
+        for col_idx, (color, obj_dict) in color_corner_lookup.items():
+            for obj_name in obj_dict.keys():
+                if obj_name not in scene_obj_names:
+                    return False, f"Color data references missing object: {obj_name}"
+
+    return True, ""
+
+
 def get_face_corner_idx(corner):
     for i in range(len(corner.vert.link_loops)):
         if corner.vert.link_loops[i].index == corner.index:
@@ -212,11 +311,14 @@ class VRTXA_OT_SetColor(bpy.types.Operator):
         global lookup_to_obj_col_idx_mapping, obj_to_lookup_col_idx_mapping
 
         obj = bpy.context.object
-        color_attribute = obj.data.color_attributes.active_color
 
-        if obj is None or color_attribute is None :
-            self.report({'WARNING'}, message="Can't set color")
+        # Fast validation check
+        is_valid, error_msg = validate_color_data_fast(obj)
+        if not is_valid:
+            self.report({"WARNING"}, message=f"Can't set color: {error_msg}")
             return {"FINISHED"}
+
+        color_attribute = obj.data.color_attributes.active_color
 
         if self.use_static:
             color = bpy.context.scene.vrtxa_static_color
@@ -326,6 +428,16 @@ class VRTXA_OT_SetColor(bpy.types.Operator):
                                 break
 
                 bmesh.update_edit_mesh(obj.data)
+
+        # Check if any changes were made (selection exists)
+        if not changes:
+            self.report({"WARNING"}, message="No vertices/faces selected")
+            return {"FINISHED"}
+
+        # Verify new_color was set (safety check)
+        if new_color is None:
+            self.report({"WARNING"}, message="Could not determine color from selection")
+            return {"FINISHED"}
 
         new_color_idx = update_lookups(new_color, changes)
 
@@ -465,10 +577,23 @@ class VRTXA_GROUP_ObjectColor(bpy.types.PropertyGroup):
         """Update color of everything with same color."""
 
         if not ignore_color_change:
+            # Fast validation before proceeding
+            obj = bpy.context.object
+            is_valid, error_msg = validate_color_data_fast(obj)
+            if not is_valid:
+                # Silently return on validation failure in update callback
+                return
+
+            # Validate index is within bounds
+            if not obj_to_lookup_col_idx_mapping or self.index >= len(
+                obj_to_lookup_col_idx_mapping
+            ):
+                # Silently return on validation failure in update callback
+                return
+
             color_idx = obj_to_lookup_col_idx_mapping[self.index]
             new_color = self.color
 
-            obj = bpy.context.object
             objs = bpy.context.selected_objects
             if not objs:
                 if obj is None:
@@ -610,7 +735,15 @@ class VRTXA_OT_Refresh(bpy.types.Operator):
         obj_to_lookup_col_idx_mapping = [x[1][0] for x in colors]
         active_color_index = max(range(len(colors)), key=lambda x: colors[x][1][1]) if len(colors) > 0 else None
 
-        sort_update_object_colors(colors, obj_to_lookup_col_idx_mapping[active_color_index])
+        # Only update if we have valid data
+        if active_color_index is not None and active_color_index < len(
+            obj_to_lookup_col_idx_mapping
+        ):
+            sort_update_object_colors(
+                colors, obj_to_lookup_col_idx_mapping[active_color_index]
+            )
+        else:
+            sort_update_object_colors(colors, None)
 
         return {"FINISHED"}
 
@@ -671,7 +804,29 @@ class VRTXA_OT_SelectByColor(bpy.types.Operator):
         if self.select_color_idx == -1:
             return {"FINISHED"}
 
+        # Validate that lookup data exists and is valid
+        if not obj_to_lookup_col_idx_mapping:
+            self.report(
+                {"WARNING"},
+                message="Color lookup data not initialized (run Refresh first)",
+            )
+            return {"FINISHED"}
+
+        # Check if the index is within bounds
+        if self.select_color_idx >= len(obj_to_lookup_col_idx_mapping):
+            self.report(
+                {"WARNING"}, message="Color index out of range (run Refresh to update)"
+            )
+            return {"FINISHED"}
+
         select_color_idx = obj_to_lookup_col_idx_mapping[self.select_color_idx]
+
+        # Verify the select_color_idx is valid in color_corner_lookup
+        if select_color_idx not in color_corner_lookup:
+            self.report(
+                {"WARNING"}, message="Selected color not found in lookup (run Refresh)"
+            )
+            return {"FINISHED"}
 
         # Deselect all (only if not in additive mode)
         if bpy.context.mode == "EDIT_MESH" and not self.additive:
